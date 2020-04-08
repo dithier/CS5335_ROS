@@ -427,7 +427,7 @@ def get_contours(frame):
 
 
     ret, thresh = cv2.threshold(closing, 127, 255, cv2.THRESH_BINARY)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    image,  contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     contours = sorted(contours, key=lambda contour:cv2.contourArea(contour), reverse=True)
     """
@@ -482,14 +482,14 @@ def get_contours(frame):
 def get_desired_cnt(img):
     img_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     _, thresh = cv2.threshold(img_grey, 127, 255, 0)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     return contours[0]
 
 def main():
     # test image
     # global img
 
-    img = cv2.imread("../images/test/buehler.jpg")
+    img = cv2.imread("../images/test/3_tiles.jpg")
     # global desired
     desired = cv2.imread("../images/desired_cnt.png")
     desired_cnt = get_desired_cnt(desired)
@@ -501,7 +501,7 @@ def main():
     annotated_image = process_frame(img, bw_target, desired_cnt)
     # contours = get_contours(bw_target)
     # best_contour(contours)
-    # annotated_image = cv2.resize(annotated_image,(600,600))
+    annotated_image = cv2.resize(annotated_image,(600,600))
     cv2.imshow('image', annotated_image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
