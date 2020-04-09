@@ -5,12 +5,12 @@ to the sample image (target.jpg). It also calculates the objects offset angle fr
 center of the camera and the distance from the camera. It displays all of this information
 on a new frame.
 """
+from __future__ import division
 from homography import find_homography
 import cv2
 import numpy as np
 import math
 from matplotlib import pyplot as plt
-# from __future__ import division
 
 # camera field of view
 CAMERA_FOV = 55
@@ -226,17 +226,17 @@ def get_orientation(bfr, orig_pts, target_pts, bw_target):
             return None, None
             """
 
-    #"""
+    """
 
     for pt in img_points:
         cv2.circle(img_copy, tuple(pt), 10, (0, 255, 0), -1)
 
     cv2.drawContours(img_copy, [bfr], 0, (0, 255, 255), 5)
-
+    img_copy = cv2.resize(img_copy, (600, 600))
     cv2.imshow("4 points", img_copy)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-    #"""
+    """
     if len(obj_points) < 4:
         return None, None
     # M = find_homography(np.array(img_points),np.array(obj_points))
@@ -553,8 +553,8 @@ def get_contours(frame):
 
 
     ret, thresh = cv2.threshold(closing, 127, 255, cv2.THRESH_BINARY)
-    # image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    # contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     contours = sorted(contours, key=lambda contour:cv2.contourArea(contour), reverse=True)
     """
@@ -609,8 +609,8 @@ def get_contours(frame):
 def get_desired_cnt(img):
     img_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     _, thresh = cv2.threshold(img_grey, 127, 255, 0)
-    # image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    # contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     return contours[0]
 
 def main():
