@@ -5,7 +5,7 @@ to the sample image (target.jpg). It also calculates the objects offset angle fr
 center of the camera and the distance from the camera. It displays all of this information
 on a new frame.
 """
-
+from homography import find_homography
 import cv2
 import numpy as np
 import math
@@ -51,13 +51,13 @@ def process_frame(frame, bw_target, desired_cnt):
     # get contours
     contours = get_contours(frame_copy)
     # get rotation angle of target
-    angle, pts, box = get_orientation_keypoints(frame, bw_target)
+    angle, pts, box = get_orientation_keypoints(frame, bw_target,contours,desired_cnt)
 
     print("angle", angle)
 
     if angle is not None:
         # find contour that is most likely the target
-        bfr = best_contour(contours, pts, desired_cnt, angle)
+        bfr = best_contour(contours, pts, desired_cnt)
         if np.any(bfr):
             print("valid contour")
             """
@@ -100,7 +100,7 @@ and the target sample image.
 """
 
 
-def get_orientation_keypoints(frame, bw_target):
+def get_orientation_keypoints(frame, bw_target,contours,desired_cnt):
     grey_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
     orb = cv2.ORB_create(nfeatures=10000, scoreType=cv2.ORB_FAST_SCORE)
@@ -127,7 +127,39 @@ def get_orientation_keypoints(frame, bw_target):
         target_pts = np.float32([kp_target[m.queryIdx].pt for m in matches])
         orig_pts = np.float32([kp_orig[m.trainIdx].pt for m in matches])
 
-        M, mask = cv2.findHomography(target_pts, orig_pts, cv2.RANSAC, 5)
+	## code to check if the target points are collinear and exist in the best contour
+	bfr = best_contour(contours, target_pts, desired_cnt)
+        img_points = []
+        obj_points = []
+        count =0
+        i=0
+        for i in range(4, len(target_pts)):
+            img_p = target_pts[i]
+            obj_p = orig_pts[i]
+            #print("p",p)
+            #if(counter(bfr,[p])==1):
+            #if cv2.pointPolygonTest(bfr, (p[0], p[1]), False) >= 0:
+            count=count+1
+            img_points.append(img_p)
+            obj_points.append(obj_p)
+
+            if count==4:
+                if (check_Collinear(img_points)):
+                    break
+                else:
+                    img_points.pop(0)
+                    img_points.pop(0)
+                    obj_points.pop(0)
+                    obj_points.pop(0)
+                    count=count-2
+        if(i==len(target_pts)):
+            print("No non-collinear point found")
+        M = find_homography(np.array(img_points),np.array(obj_points))
+
+
+
+
+        _, mask = cv2.findHomography(target_pts, orig_pts, cv2.RANSAC, 5)
         matchesMask = mask.ravel().tolist()
 
         ## using the transformation matrix to find the 4 edges of the image
@@ -161,6 +193,21 @@ def get_orientation_keypoints(frame, bw_target):
 
     else:
         return None, None, None
+
+"""Inputs: points - an array of 4 points.
+Output: Boolean value - true if it's collinear
+Description: This function checks whether the points passed are collinear. It return True if the points are not collinear
+    
+"""
+def check_Collinear(points):
+    #1, 2, 3
+    if math.fabs((points[2][1] - points[1][1]) * (points[1][0] - points[0][0]) - (points[1][1] - points[0][1]) * (points[2][0] - points[1][0]))<.1:
+        return False
+    else:
+        #1 3 4
+        if math.fabs((points[3][1] - points[2][1]) * (points[2][0] - points[0][0]) - (points[2][1] - points[0][1]) * (points[3][0] - points[2][0]))<0.1:
+            return False
+    return True
 
 
 """
@@ -229,7 +276,7 @@ the one most likely to be the target. It does this by considering which contours
 keypoints passed in and my doing shape matching based on a sample image (target_threshold.jpg) that has
 the correct shape of the box.
 """
-def best_contour(contours, keypoints, desired_cnt, angle):
+def best_contour(contours, keypoints, desired_cnt):
     """
     Identify one contour that is most likely to be our target:
     - Sort contours from largest to smallest (go through first 2-5 biggest contours?)
