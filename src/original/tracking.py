@@ -1,5 +1,5 @@
 """
-This class is responsible for tracking a red box object. It finds the object, puts
+This module is responsible for tracking a red box object. It finds the object, puts
 a best fit rectangle bounding box around the object and finds the objects relative orientation
 to the sample image (target.jpg). It also calculates the objects offset angle from the
 center of the camera and the distance from the camera. It displays all of this information
@@ -100,7 +100,7 @@ and the target sample image.
 """
 
 
-def get_orientation_keypoints(frame, bw_target,contours,desired_cnt):
+def get_keypoints(frame, bw_target,contours,desired_cnt):
     grey_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
     orb = cv2.ORB_create(nfeatures=10000, scoreType=cv2.ORB_FAST_SCORE)
@@ -126,6 +126,8 @@ def get_orientation_keypoints(frame, bw_target,contours,desired_cnt):
     if len(matches) >= MATCH_NUM_THRESHOLD:
         target_pts = np.float32([kp_target[m.queryIdx].pt for m in matches])
         orig_pts = np.float32([kp_orig[m.trainIdx].pt for m in matches])
+
+
 
 	## code to check if the target points are collinear and exist in the best contour
 	bfr = best_contour(contours, target_pts, desired_cnt)
@@ -189,7 +191,7 @@ def get_orientation_keypoints(frame, bw_target,contours,desired_cnt):
         img3 = cv2.drawMatches(bw_target, kp_target, grey_frame, kp_orig, matches, None, **draw_params)
         plt.imshow(img3, 'gray'), plt.show()
         """
-        return angle, keypoints , box
+        return angle, keypoints, box
 
     else:
         return None, None, None
@@ -530,7 +532,7 @@ def main():
     # test image
     # global img
 
-    img = cv2.imread("../../images/test/9_tiles.jpg")
+    img = cv2.imread("../../images/test/6_tiles.jpg")
     # global desired
     desired = cv2.imread("../../images/desired_cnt.png")
     desired_cnt = get_desired_cnt(desired)
