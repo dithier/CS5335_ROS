@@ -10,6 +10,7 @@ import cv2
 import numpy as np
 import math
 from matplotlib import pyplot as plt
+# from __future__ import division
 
 # camera field of view
 CAMERA_FOV = 55
@@ -32,6 +33,9 @@ KEYPOINT_NUM = 25
 # threshold for matching shapes to confirm box match
 SHAPE_MATCH_THRESHOLD = 0.1
 
+# min distance that keypoints have to be apart
+RADIUS = 50
+
 """
 process_frame
 Inputs: frame - the frame to be processed/analyzed
@@ -51,24 +55,32 @@ def process_frame(frame, bw_target, desired_cnt):
     # get contours
     contours = get_contours(frame_copy)
     # get rotation angle of target
-    angle, pts, box = get_orientation_keypoints(frame, bw_target,contours,desired_cnt)
+    orig_pts, target_pts = get_keypoints(frame, bw_target,contours,desired_cnt)
+    bfr = best_contour(contours, orig_pts, desired_cnt)
 
-    print("angle", angle)
+    """
+    cv2.drawContours(img_copy, [bfr], 0, (0, 255, 0), 5)
+    cv2.imshow("bfr", img_copy)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    """
 
-    if angle is not None:
-        # find contour that is most likely the target
-        bfr = best_contour(contours, pts, desired_cnt)
-        if np.any(bfr):
-            print("valid contour")
+
+    if np.any(bfr):
+        angle, box = get_orientation(bfr, orig_pts, target_pts, bw_target)
+
+        if angle is not None:
+
+            print("angle", angle)
+
             """
             cv2.drawContours(frame, [bfr], 0, (0, 255, 255), 2)
             cv2.imshow('BFR', frame)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
             """
-
             # find coordinates of center of contour
-            cx, cy = find_center(bfr)
+            cx, cy = find_center(box)
 
             # find the angle offset the target is from center of camera
             offset_angle = get_offset_angle(frame, cx)
@@ -81,7 +93,9 @@ def process_frame(frame, bw_target, desired_cnt):
 
             frame = draw_on_image(frame, box, angle, offset_angle, distance, cx, cy)  # vinay
         else:
-            print("no valid contours")
+            print("Homography could not be found")
+    else:
+        print("no valid contours")
 
     return frame
 
@@ -117,6 +131,12 @@ def get_keypoints(frame, bw_target,contours,desired_cnt):
     matches = sorted(matches, key=lambda x: x.distance)
     # only allow matches where the distance between descriptors is less than MATCH_DIST
     matches = [m for m in matches if m.distance < MATCH_DIST]
+    """
+     img3 = cv2.drawMatches(bw_target, kp_target, frame, kp_orig, matches[:10], None, flags=2)
+
+    plt.imshow(img3), plt.show()
+    """
+
     if len(matches) > 0:
         print("last match distance", matches[-1].distance)
 
@@ -127,25 +147,70 @@ def get_keypoints(frame, bw_target,contours,desired_cnt):
         target_pts = np.float32([kp_target[m.queryIdx].pt for m in matches])
         orig_pts = np.float32([kp_orig[m.trainIdx].pt for m in matches])
 
+        """
+                for pt in orig_pts:
+            cv2.circle(img_copy, tuple(pt), 20, (0, 255, 0), -1)
+
+            cv2.imshow("pt", img_copy)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+        """
+        return orig_pts, target_pts
+    return None, None
+
+def distance(pt1, pt2):
+    return ((pt1[0] - pt2[0]) ** 2 + (pt1[1] - pt2[1]) ** 2) ** (1/2)
+
+
+def not_in_radius(pt, prev_pts):
+    for prev_pt in prev_pts:
+        print("prev: ", prev_pt)
+        print("pt: ", pt)
+        print("distance: ", distance(pt, prev_pt))
+        if distance(pt, prev_pt) < RADIUS:
+            return False
+    return True
+
+def get_orientation(bfr, orig_pts, target_pts, bw_target):
+    """
+    for pt in orig_pts:
+        cv2.circle(img_copy, tuple(pt), 10, (0, 255, 0), -1)
+
+    cv2.drawContours(img_copy, [bfr], 0, (0, 255, 255), 5)
+
+    cv2.imshow("4 points", img_copy)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    """
+
+
 
 
 	## code to check if the target points are collinear and exist in the best contour
-	bfr = best_contour(contours, target_pts, desired_cnt)
-        img_points = []
-        obj_points = []
-        count =0
-        i=0
-        for i in range(4, len(target_pts)):
-            img_p = target_pts[i]
-            obj_p = orig_pts[i]
-            #print("p",p)
-            #if(counter(bfr,[p])==1):
+    img_points = []
+    obj_points = []
+    count =0
+    i = 0
+    for i in range(len(target_pts)):
+        img_p = orig_pts[i]
+        obj_p = target_pts[i]
+
+        """
+         cv2.circle(img_copy, tuple(img_p), 20, (0, 255, 0), -1)
+
+        cv2.imshow("pt", img_copy)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        """
+        #print("p",p)
+        if(counter(bfr, [img_p]) == 1):
             #if cv2.pointPolygonTest(bfr, (p[0], p[1]), False) >= 0:
-            count=count+1
+            #count = count + 1
             img_points.append(img_p)
             obj_points.append(obj_p)
 
-            if count==4:
+            """
+                        if count == 4:
                 if (check_Collinear(img_points)):
                     break
                 else:
@@ -153,48 +218,66 @@ def get_keypoints(frame, bw_target,contours,desired_cnt):
                     img_points.pop(0)
                     obj_points.pop(0)
                     obj_points.pop(0)
-                    count=count-2
-        if(i==len(target_pts)):
+                    count = count - 2
+            
+            
+        if(i == len(target_pts) - 1):
             print("No non-collinear point found")
-        M = find_homography(np.array(img_points),np.array(obj_points))
+            return None, None
+            """
+
+    #"""
+
+    for pt in img_points:
+        cv2.circle(img_copy, tuple(pt), 10, (0, 255, 0), -1)
+
+    cv2.drawContours(img_copy, [bfr], 0, (0, 255, 255), 5)
+
+    cv2.imshow("4 points", img_copy)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    #"""
+    if len(obj_points) < 4:
+        return None, None
+    # M = find_homography(np.array(img_points),np.array(obj_points))
+    M = find_homography(np.array(obj_points), np.array(img_points))
+    print("My H: ", M)
 
 
 
 
-        _, mask = cv2.findHomography(target_pts, orig_pts, cv2.RANSAC, 5)
-        matchesMask = mask.ravel().tolist()
+    # H, mask = cv2.findHomography(target_pts, orig_pts, cv2.RANSAC, 5)
+    H , mask = cv2.findHomography(np.array(obj_points), np.array(img_points), cv2.RANSAC, 5)
+    print("CV2 H:", H)
+    # matchesMask = mask.ravel().tolist()
 
-        ## using the transformation matrix to find the 4 edges of the image
-        h, w = bw_target.shape
-        pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1],[w - 1, 0]]).reshape(-1,1, 2)
-        dst = cv2.perspectiveTransform(pts, M)
-        box = np.reshape(dst,(4,2))
-        box = np.int0(box)
+    ## using the transformation matrix to find the 4 edges of the image
+    h, w = bw_target.shape
+    pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1],[w - 1, 0]]).reshape(-1,1, 2)
+    dst = cv2.perspectiveTransform(pts, H)
+    box = np.reshape(dst,(4,2))
+    box = np.int0(box)
+    print("box: ", box)
 
-        b = M[0][1];
-        a = M[0][0];
-        # angle to get from box in frame to 0 degrees
-        angle =  - math.atan2(b, a) * (180 / math.pi)
-        # multiply by -1 to get from 0 degrees to frame (the box in the frame's angle of rotation)
-        angle = -1 * round(angle, 0)
+    b = M[0][1];
+    a = M[0][0];
+    # angle to get from box in frame to 0 degrees
+    angle =  -math.atan2(b, a) * (180 / math.pi)
+    # multiply by -1 to get from 0 degrees to frame (the box in the frame's angle of rotation)
+    angle = -1 * round(angle, 0)
 
-        if angle < 0:
-            angle += 360
+    if angle < 0:
+        angle += 360
 
-        keypoints = orig_pts if len(orig_pts) <= KEYPOINT_NUM else orig_pts[:KEYPOINT_NUM]
-
-        """
-        draw_params = dict(matchColor=(0, 255, 0),  # draw matches in green color
-                           singlePointColor=None,
-                           matchesMask=matchesMask,  # draw only inliers
-                           flags=2)
-        img3 = cv2.drawMatches(bw_target, kp_target, grey_frame, kp_orig, matches, None, **draw_params)
-        plt.imshow(img3, 'gray'), plt.show()
-        """
-        return angle, keypoints, box
-
-    else:
-        return None, None, None
+    """
+    draw_params = dict(matchColor=(0, 255, 0),  # draw matches in green color
+                       singlePointColor=None,
+                       matchesMask=matchesMask,  # draw only inliers
+                       flags=2)
+    img3 = cv2.drawMatches(bw_target, kp_target, grey_frame, kp_orig, matches, None, **draw_params)
+    plt.imshow(img3, 'gray'), plt.show()
+    """
+    return angle, box
 
 """Inputs: points - an array of 4 points.
 Output: Boolean value - true if it's collinear
@@ -470,7 +553,8 @@ def get_contours(frame):
 
 
     ret, thresh = cv2.threshold(closing, 127, 255, cv2.THRESH_BINARY)
-    image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    # image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     contours = sorted(contours, key=lambda contour:cv2.contourArea(contour), reverse=True)
     """
@@ -525,14 +609,17 @@ def get_contours(frame):
 def get_desired_cnt(img):
     img_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     _, thresh = cv2.threshold(img_grey, 127, 255, 0)
-    image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    # image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     return contours[0]
 
 def main():
     # test image
-    # global img
 
-    img = cv2.imread("../../images/test/6_tiles.jpg")
+    img = cv2.imread("../../images/test/270.jpg")
+    global img_copy
+    img_copy = np.copy(img)
+
     # global desired
     desired = cv2.imread("../../images/desired_cnt.png")
     desired_cnt = get_desired_cnt(desired)
