@@ -12,7 +12,7 @@ import math
 from matplotlib import pyplot as plt
 
 # camera field of view
-CAMERA_FOV = 47
+CAMERA_FOV = 55
 
 # actual width (in inches) of target
 TARGET_WIDTH = 9.25
@@ -74,8 +74,7 @@ def process_frame(frame, bw_target, desired_cnt):
             offset_angle = get_offset_angle(frame, cx)
 
             # find the distance of the camera to the target
-            # distance = calculate_distance(frame, bfr) # carter
-            distance = 0
+            distance = calculate_distance(frame, box) # carter
 
             # annotate and draw extra information onto the frame
             #frame = draw_on_image(frame, bfr, angle, offset_angle, distance, cx, cy) # vinay
@@ -161,7 +160,7 @@ def get_orientation_keypoints(frame, bw_target):
         return angle, keypoints , box
 
     else:
-        return None, None
+        return None, None, None
 
 
 """
@@ -188,8 +187,8 @@ Description: This function calculates the distance from the target to the camera
 def calculate_distance(frame, bfr):
     height, width, channels = frame.shape
 
-    w1 = math.fabs(bfr[3][1] - bfr[0][1])
-    w2 = math.fabs(bfr[2][1] - bfr[1][1])
+    w1 = math.fabs(bfr[3][0] - bfr[0][0])
+    w2 = math.fabs(bfr[2][0] - bfr[1][0])
     width_img = (w1 + w2) / 2.0  # avg the widths of the two sides of the image
 
     w=TARGET_WIDTH*width/width_img
@@ -249,13 +248,10 @@ def best_contour(contours, keypoints, desired_cnt, angle):
    
     cx, cy = find_center(desired_cnt)
     desired_cnt = desired_cnt - [cx, cy]
-
     M = get_rotation_matrix(-angle)
-
     result = map(lambda x: rotate_point(x, M), desired_cnt)
     rotated_cnt = np.array(list(result), dtype=np.int)
     rotated_cnt += [cx, cy]
-
     cv2.drawContours(desired, [rotated_cnt], 0, (0, 255, 0), 3)
     cv2.imshow('rotated image', desired)
     cv2.waitKey(0)
@@ -323,7 +319,6 @@ def best_contour(contours, keypoints, desired_cnt, angle):
     hull = cv2.convexHull(cnt, returnPoints=False)
     ## finding the defects in the contour and fixing them
     defects = cv2.convexityDefects(cnt, hull)
-
     for i in range(defects.shape[0]):
         s, e, f, d = defects[i, 0]
         start = tuple(cnt[s][0])
@@ -344,7 +339,6 @@ def counter(contour,points):
 
     """
     cv2.drawContours(img, [contour], 0, (0, 255, 0), 6)
-
  
         for point in points:
         cv2.circle(img, (point[0], point[1]), 15, (0, 255, 255), -1)
@@ -427,7 +421,7 @@ def get_contours(frame):
 
 
     ret, thresh = cv2.threshold(closing, 127, 255, cv2.THRESH_BINARY)
-    image,  contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     contours = sorted(contours, key=lambda contour:cv2.contourArea(contour), reverse=True)
     """
@@ -489,13 +483,13 @@ def main():
     # test image
     # global img
 
-    img = cv2.imread("../images/test/3_tiles.jpg")
+    img = cv2.imread("../../images/test/9_tiles.jpg")
     # global desired
-    desired = cv2.imread("../images/desired_cnt.png")
+    desired = cv2.imread("../../images/desired_cnt.png")
     desired_cnt = get_desired_cnt(desired)
 
     # image that has target in it at 0 degree rotation
-    bw_target = cv2.imread("../images/1.jpg", 0)
+    bw_target = cv2.imread("../../images/1.jpg", 0)
     # contours = get_contours(img)
 
     annotated_image = process_frame(img, bw_target, desired_cnt)
