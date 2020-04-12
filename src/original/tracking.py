@@ -6,7 +6,7 @@ center of the camera and the distance from the camera. It displays all of this i
 on a new frame.
 """
 from __future__ import division
-from homography import find_homography
+from homography_and_pose import find_homography
 import cv2
 import numpy as np
 import math
@@ -158,19 +158,6 @@ def get_keypoints(frame, bw_target,contours,desired_cnt):
         return orig_pts, target_pts
     return None, None
 
-def distance(pt1, pt2):
-    return ((pt1[0] - pt2[0]) ** 2 + (pt1[1] - pt2[1]) ** 2) ** (1/2)
-
-
-def not_in_radius(pt, prev_pts):
-    for prev_pt in prev_pts:
-        print("prev: ", prev_pt)
-        print("pt: ", pt)
-        print("distance: ", distance(pt, prev_pt))
-        if distance(pt, prev_pt) < RADIUS:
-            return False
-    return True
-
 def get_orientation(bfr, orig_pts, target_pts, bw_target):
     """
     for pt in orig_pts:
@@ -182,15 +169,8 @@ def get_orientation(bfr, orig_pts, target_pts, bw_target):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     """
-
-
-
-
-	## code to check if the target points are collinear and exist in the best contour
     img_points = []
     obj_points = []
-    count =0
-    i = 0
     for i in range(len(target_pts)):
         img_p = orig_pts[i]
         obj_p = target_pts[i]
@@ -202,29 +182,9 @@ def get_orientation(bfr, orig_pts, target_pts, bw_target):
         cv2.waitKey(0)
         cv2.destroyAllWindows()
         """
-        #print("p",p)
         if(counter(bfr, [img_p]) == 1):
-            #if cv2.pointPolygonTest(bfr, (p[0], p[1]), False) >= 0:
-            #count = count + 1
             img_points.append(img_p)
             obj_points.append(obj_p)
-
-            """
-                        if count == 4:
-                if (check_Collinear(img_points)):
-                    break
-                else:
-                    img_points.pop(0)
-                    img_points.pop(0)
-                    obj_points.pop(0)
-                    obj_points.pop(0)
-                    count = count - 2
-            
-            
-        if(i == len(target_pts) - 1):
-            print("No non-collinear point found")
-            return None, None
-            """
 
     """
 
@@ -362,34 +322,6 @@ keypoints passed in and my doing shape matching based on a sample image (target_
 the correct shape of the box.
 """
 def best_contour(contours, keypoints, desired_cnt):
-    """
-    Identify one contour that is most likely to be our target:
-    - Sort contours from largest to smallest (go through first 2-5 biggest contours?)
-    - might need to do convex hull to get the full box shape
-    - can do things like match shape: https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/py_contours/py_contours_more_functions/py_contours_more_functions.html
-        - for match shape will need to make black and white mask image with right aspect ratio (see box dimensions above); you can generate this image yourself using draw functions
-        - for speed it will probably be best to extract the contours of the shape in main() and pass that contour in process_frame and this function so we aren't redoing the coontour extraction each frame
-    - check aspect ratio (although matchshapes might be enough and we may not have to do this)
-    - and make sure all keypoints reside inside the contour (https://stackoverflow.com/questions/50670326/how-to-check-if-point-is-placed-inside-contour)
-    """
-    """
-    
-    cntsSorted = sorted(contours, key=lambda x: len(x), reverse=True)
-    cnt = cntsSorted[0]
-    cv2.drawContours(frame, [cnt], -1, (0, 255, 0), 6)
-   
-    cx, cy = find_center(desired_cnt)
-    desired_cnt = desired_cnt - [cx, cy]
-    M = get_rotation_matrix(-angle)
-    result = map(lambda x: rotate_point(x, M), desired_cnt)
-    rotated_cnt = np.array(list(result), dtype=np.int)
-    rotated_cnt += [cx, cy]
-    cv2.drawContours(desired, [rotated_cnt], 0, (0, 255, 0), 3)
-    cv2.imshow('rotated image', desired)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-    """
-
     # threshold for number of keypoints that need to be inside hull
     count_threshold = round(0.4 * len(keypoints), 0)
     print("count threshold: ", count_threshold)
@@ -429,60 +361,14 @@ def best_contour(contours, keypoints, desired_cnt):
                 else:
                     i += 1
                     continue
-
-    ## sorting the contours based on the number of kepypoints in them
-    #ctrs = sorted(contours,key = lambda count:counter(count,keypoints),reverse=True )
-    #cnt = ctrs[0]
-
-    # print(cv2.contourArea(contours[0]))
-    # epsilon = 0.000000000001 * cv2.arcLength(cnt, True)
-    # approx = cv2.approxPolyDP(cnt, epsilon, True)
-    #
-    # rect = cv2.minAreaRect(cnt)
-    # box = cv2.boxPoints(rect)
-    # box = np.int0(box)
-    # img = cv2.drawContours(img, [box], 0, (0, 0, 255), 2)
-
-    #cv2.drawContours(img, approx, -1, (0, 255, 0), 3)
-    #cv2.imshow('hi', img)
-
-    ## convhull to get better contour
-    """
-    hull = cv2.convexHull(cnt, returnPoints=False)
-    ## finding the defects in the contour and fixing them
-    defects = cv2.convexityDefects(cnt, hull)
-    for i in range(defects.shape[0]):
-        s, e, f, d = defects[i, 0]
-        start = tuple(cnt[s][0])
-        end = tuple(cnt[e][0])
-        cv2.line(img, start, end, [0, 255, 0], 2)
-    """
-    """
-    cv2.imshow('img', img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-    print (keypoints)
-    """
-
     return None
 
 def counter(contour,points):
     count = 0
-
-    """
-    cv2.drawContours(img, [contour], 0, (0, 255, 0), 6)
- 
-        for point in points:
-        cv2.circle(img, (point[0], point[1]), 15, (0, 255, 255), -1)
-    cv2.imshow('counter', img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-    """
-
     #print(points)
     for p in points:
         if(cv2.pointPolygonTest(contour, (p[0], p[1]), False)>=0):
-            count=count+1
+            count = count + 1
     return count
 """
 draw_on_image
@@ -499,12 +385,6 @@ includes a bounding box around the target, text that displays the angle of rotat
 from camera to target, and has a line from the center of the image to the center of the target.
 """
 def draw_on_image(frame, bfr, angle, offset_angle, distance, cx, cy):
-    """
-    Draw bounding box on image
-    Above bounding box say Object Rotation : angle degrees
-    In bottom right corner of frame put offset_angle and distance
-    Draw line from center of image to center of target
-    """
     cv2.drawContours(frame, [bfr], 0, (0, 255, 0), 5)
     return frame
 
@@ -535,16 +415,6 @@ def get_contours(frame):
     # increase edges that are not thick at bottom of box
     # mask1 = cv2.dilate(mask1, kernel, iterations=2)
     mask1 = cv2.morphologyEx(mask1, cv2.MORPH_OPEN, kernel, iterations=1)
-
-    # deep red color of box
-    """
-    lower_deep_red = np.array([0, 0, 0])
-    upper_deep_red = np.array([139, 255, 255])
-    mask2 = cv2.inRange(hsv, lower_deep_red, upper_deep_red)
-    mask2 = cv2.bitwise_not(mask2)
-    
-    mask = mask0 + mask1 + mask2
-    """
 
     mask = mask0 + mask1
 
