@@ -26,7 +26,7 @@ def nothing(x):
     pass
 
 def main():
-    mode = "orange"
+    mode = "red"
 
     """
     # orange
@@ -83,8 +83,13 @@ def main():
 
 
     cv2.namedWindow('image')
-    # img = cv2.imread("../images/test/225.jpg")
-    img = cv2.imread("../images/test/135_tiles.png")
+    img = cv2.imread("../../images/test/3_tiles.jpg")
+    #img = cv2.imread("../../images/test/135_tiles.png")
+    height = 300
+    h, w = img.shape[:2]
+    r = height / float(h)
+    dim = (int(w * r), height)
+    img = cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
     orig_img = np.copy(img)
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
