@@ -12,9 +12,6 @@ def find_homography(objpts, imgpts):
         A = np.vstack((A, sub_A))
         b = np.vstack((b, sub_b))
 
-
-    # np.savez("old_calcs", A=A,b=b)
-
     x = np.matmul(np.linalg.pinv(A), b)
     h33 = np.array([[1]])
 

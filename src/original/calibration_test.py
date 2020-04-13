@@ -11,7 +11,7 @@ def main():
     # Arrays to store object points and image points from all the images.
     objpoints = [] # 3d point in real world space
     imgpoints = [] # 2d points in image plane.
-    images = glob.glob('../images/tutorial_checkerboard/*.png')
+    images = glob.glob('../../images/tutorial_checkerboard/*.png')
     for fname in images:
         img = cv.imread(fname)
         gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
@@ -30,12 +30,19 @@ def main():
             cv.destroyAllWindows()
             """
     ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
-    np.savez("tutorial_calibration", mtx=mtx, dist=dist)
+    # np.savez("tutorial_calibration", mtx=mtx, dist=dist)
 
     # undistort
-    img = cv.imread('../images/tutorial_checkerboard/6.png')
+    img = cv.imread('../../images/tutorial_checkerboard/2.png')
+    h, w = img.shape[:2]
+    newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w, h), 0, (w, h))
+    np.savez("tutorial_new_calibration", newmtx=newcameramtx)
 
-    dst = cv.undistort(img, mtx, dist, None, mtx)
+    # dst = cv.undistort(img, mtx, dist, None, mtx)
+    dst = cv.undistort(img, mtx, dist, None, newcameramtx)
+    x, y, w, h = roi
+    dst = dst[y:y + h, x:x + w]
+
     cv.imshow('undistorted', dst)
     cv.waitKey(0)
     cv.destroyAllWindows()
