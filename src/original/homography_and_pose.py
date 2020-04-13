@@ -151,6 +151,7 @@ def main():
 
         img = draw(img, corners, projected_pts)
 
+        cv.resize(img, (200,200))
         cv.imshow('img', img)
         cv.waitKey(0)
         cv.destroyAllWindows()
