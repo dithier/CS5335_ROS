@@ -112,41 +112,42 @@ def make_subset(xy, uv):
     b = np.array([[u, v]]).reshape((2, 1))
     return array, b
 
+def draw_cv(img, corners, imgpts):
+    corner = tuple(corners[0].ravel())
+    img = cv.line(img, corner, tuple(imgpts[0].ravel()), (255,0,0), 5)
+    img = cv.line(img, corner, tuple(imgpts[1].ravel()), (0,255,0), 5)
+    img = cv.line(img, corner, tuple(imgpts[2].ravel()), (0,0,255), 5)
+    return img
+
 def main():
     with np.load("tutorial_calibration.npz") as data:
         mtx, dist = [data[i] for i in ("mtx", "dist")]
 
+    with np.load("tutorial_new_calibration.npz") as data:
+        newcameramtx = data["newmtx"]
+
     objp = np.zeros((6 * 7, 3), np.float32)
     objp[:, :2] = np.mgrid[0:7, 0:6].T.reshape(-1, 2)
 
-    pt1 = objp[0]
-    pt2 = objp[4]
-    pt3 = objp[7]
-    pt4 = objp[11]
-    objp = np.vstack((pt1, pt2, pt3, pt4))
+    print("mtx: ", mtx)
+    print("new mtx:", newcameramtx)
 
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
     img = cv.imread("../../images/tutorial_checkerboard/2.png")
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-    gray = cv.undistort(gray, mtx, dist, None, mtx)
+
 
     ret, corners = cv.findChessboardCorners(gray, (7, 6), None)
     if ret == True:
         corners2 = cv.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
         corners2 = corners2.flatten().reshape(-1, 2)
 
-        pt1 = corners2[0]
-        pt2 = corners2[4]
-        pt3 = corners2[7]
-        pt4 = corners2[11]
-        corners2 = np.vstack((pt1, pt2, pt3, pt4))
-
         H = find_homography(objp, corners2)
 
-        T, R, t = get_rotation_matrix(H, mtx)
+        T, R, t = get_rotation_matrix(H, newcameramtx)
 
         axis = np.float32([[3, 0, 0], [0, 3, 0], [0, 0, -3]]).flatten().reshape((3, 3))
-        projected_pts = project_pts(T, mtx, axis)
+        projected_pts = project_pts(T, newcameramtx, axis)
 
         img = draw(img, corners, projected_pts)
 
