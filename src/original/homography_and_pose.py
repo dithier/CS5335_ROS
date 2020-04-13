@@ -133,7 +133,7 @@ def main():
     print("new mtx:", newcameramtx)
 
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-    img = cv.imread("../../images/tutorial_checkerboard/2.png")
+    img = cv.imread("../../images/tutorial_checkerboard/1.png")
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 
 

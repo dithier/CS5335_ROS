@@ -56,7 +56,10 @@ def process_frame(frame, bw_target, desired_cnt):
     contours = get_contours(frame_copy)
     # get rotation angle of target
     orig_pts, target_pts = get_keypoints(frame, bw_target,contours,desired_cnt)
-    bfr = best_contour(contours, orig_pts, desired_cnt)
+    if len(orig_pts) > 0:
+        bfr = best_contour(contours, orig_pts, desired_cnt)
+    else:
+        bfr = None
 
     """
     cv2.drawContours(img_copy, [bfr], 0, (0, 255, 0), 5)
@@ -123,6 +126,34 @@ def get_keypoints(frame, bw_target,contours,desired_cnt):
     kp_target, des_target = orb.detectAndCompute(bw_target, None)
     kp_orig, des_orig = orb.detectAndCompute(grey_frame, None)
 
+
+    #bf = cv2.BFMatcher()
+    #matches = bf.knnMatch(des_target, des_orig, k=2)
+    FLANN_INDEX_LSH = 6
+
+    index_params = dict(algorithm = FLANN_INDEX_LSH,
+                        table_number = 6,
+                        key_size = 12,
+                        multi_probe_level = 1)
+    search_params = dict(checks=50)
+
+    flann = cv2.FlannBasedMatcher(index_params, search_params)
+    matches = flann.knnMatch(des_target, des_orig, k=2)
+
+    good = []
+    g = []
+    for m, n in matches:
+        if m.distance < 0.7 * n.distance:
+            good.append(m)
+            # g.append([m])
+    good = sorted(good, key=lambda x: x.distance)
+    g = [[m] for m in good]
+
+    img3 = cv2.drawMatchesKnn(bw_target, kp_target, grey_frame, kp_orig, g[1:25], None, flags=2)
+    plt.imshow(img3), plt.show()
+    """
+    matches = sorted(good, key=lambda x: x.distance)
+    
     # create a matcher and match descriptors
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
     matches = bf.match(des_target, des_orig)
@@ -131,32 +162,36 @@ def get_keypoints(frame, bw_target,contours,desired_cnt):
     matches = sorted(matches, key=lambda x: x.distance)
     # only allow matches where the distance between descriptors is less than MATCH_DIST
     matches = [m for m in matches if m.distance < MATCH_DIST]
-    """
-     img3 = cv2.drawMatches(bw_target, kp_target, frame, kp_orig, matches[:10], None, flags=2)
+    
+    #img3 = cv2.drawMatches(bw_target, kp_target, frame, kp_orig, matches[:10], None, flags=2)
 
-    plt.imshow(img3), plt.show()
-    """
+    #plt.imshow(img3), plt.show()
+    
 
     if len(matches) > 0:
         print("last match distance", matches[-1].distance)
-
+    """
     print("num matches: ", len(matches))
 
     # make sure we have enough good quality matches
-    if len(matches) >= MATCH_NUM_THRESHOLD:
-        target_pts = np.float32([kp_target[m.queryIdx].pt for m in matches])
-        orig_pts = np.float32([kp_orig[m.trainIdx].pt for m in matches])
+    if len(good) >= MATCH_NUM_THRESHOLD:
+        target_pts = np.float32([kp_target[m.queryIdx].pt for m in good])
+        orig_pts = np.float32([kp_orig[m.trainIdx].pt for m in good])
 
+        target_pts = target_pts if len(target_pts) < KEYPOINT_NUM else target_pts[1:KEYPOINT_NUM]
+        orig_pts = orig_pts if len(orig_pts) < KEYPOINT_NUM else orig_pts[1:KEYPOINT_NUM]
         """
-                for pt in orig_pts:
-            cv2.circle(img_copy, tuple(pt), 20, (0, 255, 0), -1)
+        print(target_pts)
+        for pt in target_pts:
+            cv2.circle(orig, tuple(pt), 2, (0, 255, 0), -1)
 
-            cv2.imshow("pt", img_copy)
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
+        cv2.imshow("pt", orig)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
         """
+
         return orig_pts, target_pts
-    return None, None
+    return [], []
 
 def get_orientation(bfr, orig_pts, target_pts, bw_target):
     """
@@ -187,13 +222,17 @@ def get_orientation(bfr, orig_pts, target_pts, bw_target):
             obj_points.append(obj_p)
 
     """
+    for pt in obj_points:
+        cv2.circle(orig, tuple(pt), 2, (0, 255, 0), -1)
+
+    cv2.imshow("orig points", orig)
 
     for pt in img_points:
-        cv2.circle(img_copy, tuple(pt), 10, (0, 255, 0), -1)
+        cv2.circle(img_copy, tuple(pt), 2, (0, 255, 0), -1)
 
     cv2.drawContours(img_copy, [bfr], 0, (0, 255, 255), 5)
-    img_copy = cv2.resize(img_copy, (600, 600))
-    cv2.imshow("4 points", img_copy)
+    cv2.imshow("image points", img_copy)
+
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     """
@@ -203,12 +242,9 @@ def get_orientation(bfr, orig_pts, target_pts, bw_target):
     M = find_homography(np.array(obj_points), np.array(img_points))
     print("My H: ", M)
 
-
-
-
-    # H, mask = cv2.findHomography(target_pts, orig_pts, cv2.RANSAC, 5)
-    H , mask = cv2.findHomography(np.array(obj_points), np.array(img_points), cv2.RANSAC, 5)
-    print("CV2 H:", H)
+    H, mask = cv2.findHomography(np.array(obj_points), np.array(img_points), cv2.RANSAC, 5)
+    # H , mask = cv2.findHomography(np.array(obj_points), np.array(img_points), 0, 5)
+    print("CV2 H:", M)
     # matchesMask = mask.ravel().tolist()
 
     ## using the transformation matrix to find the 4 edges of the image
@@ -234,7 +270,7 @@ def get_orientation(bfr, orig_pts, target_pts, bw_target):
                        singlePointColor=None,
                        matchesMask=matchesMask,  # draw only inliers
                        flags=2)
-    img3 = cv2.drawMatches(bw_target, kp_target, grey_frame, kp_orig, matches, None, **draw_params)
+    img3 = cv2.drawMatches(bw_target, orig_pts, frame, kp_orig, matches, None, **draw_params)
     plt.imshow(img3, 'gray'), plt.show()
     """
     return angle, box
@@ -323,11 +359,11 @@ the correct shape of the box.
 """
 def best_contour(contours, keypoints, desired_cnt):
     # threshold for number of keypoints that need to be inside hull
-    count_threshold = round(0.4 * len(keypoints), 0)
+    count_threshold = 7
     print("count threshold: ", count_threshold)
 
     ## sorted the contours based on their area
-    contours  = sorted(contours, key=lambda contour:cv2.contourArea(contour),reverse=True)
+    contours = sorted(contours, key=lambda contour:cv2.contourArea(contour),reverse=True)
 
     i = 0
     for contour in contours:
@@ -340,7 +376,8 @@ def best_contour(contours, keypoints, desired_cnt):
             box = np.int0(box)
             count = counter(box, keypoints)
 
-            """ 
+
+            """
             cv2.drawContours(img_copy, [box], 0, (0, 255, 255), 2)
             cv2.drawContours(img_copy, [desired_cnt], 0, (255, 0, 0), 2)
             cv2.imshow('best_contour', img_copy)
@@ -401,20 +438,20 @@ def get_contours(frame):
 
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    kernel = np.ones((9, 9), np.uint8)
+    kernel = np.ones((5, 5), np.uint8)
 
     lower_orange = np.array([21, 67, 149])
     upper_orange = np.array([95, 255, 255])
     mask0 = cv2.inRange(hsv, lower_orange, upper_orange)
 
     # main red color of box
-    lower_red = np.array([165, 97, 58])
+    lower_red = np.array([166, 77, 58])
     upper_red = np.array([188, 216, 235])
     mask1 = cv2.inRange(hsv, lower_red, upper_red)
 
     # increase edges that are not thick at bottom of box
     # mask1 = cv2.dilate(mask1, kernel, iterations=2)
-    mask1 = cv2.morphologyEx(mask1, cv2.MORPH_OPEN, kernel, iterations=1)
+    # mask1 = cv2.morphologyEx(mask1, cv2.MORPH_OPEN, kernel, iterations=1)
 
     mask = mask0 + mask1
 
@@ -486,7 +523,13 @@ def get_desired_cnt(img):
 def main():
     # test image
 
-    img = cv2.imread("../../images/test/270.jpg")
+    img = cv2.imread("../../images/test/90.jpg")
+    height = 450
+    h, w = img.shape[:2]
+    r = height / float(h)
+    dim = (int(w * r), height)
+    global img
+    img = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
     global img_copy
     img_copy = np.copy(img)
 
@@ -496,12 +539,17 @@ def main():
 
     # image that has target in it at 0 degree rotation
     bw_target = cv2.imread("../../images/1.jpg", 0)
+    h, w = bw_target.shape[:2]
+    r = height / float(h)
+    dim = (int(w * r), height)
+    global orig
+    orig = cv2.resize(bw_target, dim, interpolation=cv2.INTER_AREA)
     # contours = get_contours(img)
 
-    annotated_image = process_frame(img, bw_target, desired_cnt)
+    annotated_image = process_frame(img, orig, desired_cnt)
     # contours = get_contours(bw_target)
     # best_contour(contours)
-    annotated_image = cv2.resize(annotated_image,(600,600))
+    #annotated_image = cv2.resize(annotated_image,(600,600))
     cv2.imshow('image', annotated_image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
