@@ -1,3 +1,5 @@
+#! /usr/bin/python
+
 """
 pointgrey_camera_driver (at least the version installed with apt-get) doesn't
 properly handle camera info in indigo.
@@ -45,13 +47,15 @@ def yaml_to_CameraInfo(yaml_fname):
 
 if __name__ == "__main__":
     # Get fname from command line (cmd line input required)
-    filename = "webcam.yaml"
+    path = "/home/ithier/catkin_ws/src/CS5335_ROS/src/scripts/"
+
+    filename = path + "webcam.yaml"
 
     # Parse yaml file
     camera_info_msg = yaml_to_CameraInfo(filename)
 
     # Initialize publisher node
-    rospy.init_node("camera_info_publisher", anonymous=True)
+    rospy.init_node("camera_info_publisher", anonymous=False)
     publisher = rospy.Publisher("/webcam/camera_info", CameraInfo, queue_size=10)
     rate = rospy.Rate(10)
 
