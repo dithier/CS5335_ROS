@@ -28,62 +28,91 @@ def nothing(x):
 def main():
     mode = "red"
 
+    source = "webcam"
     """
     # orange
     color = np.uint8([[[0, 165, 255]]])
     """
-
-    if mode == "orange":
-        """
-        lower_orange = np.array([15, 67, 149])
-        upper_orange = np.array([95, 255, 255])
-        """
-        h_low_start = 15
-        s_low_start = 67
-        v_low_start = 149
-        h_high_start = 95
-        s_high_start = 255
-        v_high_start = 255
-    elif mode == "red":
-        """
-        # 3_tiles
-        h_low_start = 164
-        s_low_start = 70
-        v_low_start = 74
-        h_high_start = 178
-        s_high_start = 255
-        v_high_start = 215
-        
-        # non-tiles
-        lower_red = np.array([160, 50, 50])
-        upper_red = np.array([255, 255, 255])
-        """
-        h_low_start = 166
-        s_low_start = 77
-        v_low_start = 58
-        h_high_start = 188
-        s_high_start = 216
-        v_high_start = 235
-    else:
-        """
-        lower_deep_red = np.array([0, 0, 0])
-        upper_deep_red = np.array([139, 255, 255])
-        
-        H: [0, 168]
-        S: [0, 255]
-        V : [0, 255]
-        """
-        h_low_start = 0
-        s_low_start = 0
-        v_low_start = 0
-        # h_high_startt = 60
-        h_high_start = 139
-        s_high_start = 255
-        v_high_start = 255
+    if source == "phone":
+        if mode == "orange":
+            """
+            lower_orange = np.array([15, 67, 149])
+            upper_orange = np.array([95, 255, 255])
+            """
+            h_low_start = 0
+            s_low_start = 79
+            v_low_start = 42
+            h_high_start = 16
+            s_high_start = 126
+            v_high_start = 150
+        elif mode == "red":
+            """
+            # 3_tiles
+            h_low_start = 164
+            s_low_start = 70
+            v_low_start = 74
+            h_high_start = 178
+            s_high_start = 255
+            v_high_start = 215
+            
+            # non-tiles
+            lower_red = np.array([160, 50, 50])
+            upper_red = np.array([255, 255, 255])
+            """
+            h_low_start = 166
+            s_low_start = 77
+            v_low_start = 58
+            h_high_start = 188
+            s_high_start = 216
+            v_high_start = 235
+        else:
+            """
+            lower_deep_red = np.array([0, 0, 0])
+            upper_deep_red = np.array([139, 255, 255])
+            
+            H: [0, 168]
+            S: [0, 255]
+            V : [0, 255]
+            """
+            h_low_start = 0
+            s_low_start = 0
+            v_low_start = 0
+            # h_high_startt = 60
+            h_high_start = 139
+            s_high_start = 255
+            v_high_start = 255
+    elif source == "webcam":
+        if mode == "orange":
+            """
+            lower_orange = np.array([15, 67, 149])
+            upper_orange = np.array([95, 255, 255])
+            """
+            h_low_start = 3
+            s_low_start = 89
+            v_low_start = 70
+            h_high_start = 18
+            s_high_start = 131
+            v_high_start = 158
+        elif mode == "red":
+            """
+            h_low_start = 0
+            s_low_start = 150
+            v_low_start = 45
+            h_high_start = 255
+            s_high_start = 205
+            v_high_start = 127
+            """
+            h_low_start = 0
+            s_low_start = 118
+            v_low_start = 65
+            h_high_start = 255
+            s_high_start = 190
+            v_high_start = 160
 
 
     cv2.namedWindow('image')
-    img = cv2.imread("../../images/test/3_tiles.jpg")
+    img = cv2.imread("../../images/calibration/0_20_28.png")
+    # img = cv2.imread("../../images/calibration/0.jpeg")
     #img = cv2.imread("../../images/test/135_tiles.png")
     height = 300
     h, w = img.shape[:2]
