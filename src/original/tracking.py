@@ -6,7 +6,7 @@ center of the camera and the distance from the camera. It displays all of this i
 on a new frame.
 """
 from __future__ import division
-from homography_and_pose import find_homography
+from homography_and_pose import HomographyandPose
 import cv2
 import numpy as np
 import math
@@ -36,6 +36,9 @@ SHAPE_MATCH_THRESHOLD = 0.1
 # min distance that keypoints have to be apart
 RADIUS = 50
 
+# size for one unit of the axis in the reference frame of 1.jpg
+AXIS_SIZE = 50
+
 """
 process_frame
 Inputs: frame - the frame to be processed/analyzed
@@ -50,7 +53,7 @@ the center of the image), distance from the camera to the target, orientation of
 to the sample target image (target.jpg), a bounding box for the target, and the center of the target.
 It then draws this information on the frame and returns that new frame.
 """
-def process_frame(frame, bw_target, desired_cnt):
+def process_frame(frame, bw_target, desired_cnt, newcameramtx):
     frame_copy = np.copy(frame)
     # get contours
     contours = get_contours(frame_copy)
@@ -70,7 +73,7 @@ def process_frame(frame, bw_target, desired_cnt):
 
 
     if np.any(bfr):
-        angle, box = get_orientation(bfr, orig_pts, target_pts, bw_target)
+        angle, box, H = get_orientation(bfr, orig_pts, target_pts, bw_target)
 
         if angle is not None:
 
@@ -94,7 +97,12 @@ def process_frame(frame, bw_target, desired_cnt):
             # annotate and draw extra information onto the frame
             #frame = draw_on_image(frame, bfr, angle, offset_angle, distance, cx, cy) # vinay
 
-            frame = draw_on_image(frame, box, angle, offset_angle, distance, cx, cy)  # vinay
+            T, R, t = HomographyandPose.get_rotation_matrix(H, newcameramtx)
+
+            axis = np.float32([[AXIS_SIZE, 0, 0], [0, AXIS_SIZE, 0], [0, 0, -AXIS_SIZE]]).flatten().reshape((3, 3))
+            projected_pts = HomographyandPose.project_pts(T, newcameramtx, axis)
+
+            frame = draw_on_image(frame, box, angle, offset_angle, distance, cx, cy, projected_pts)  # vinay
         else:
             print("Homography could not be found")
     else:
@@ -239,7 +247,7 @@ def get_orientation(bfr, orig_pts, target_pts, bw_target):
     if len(obj_points) < 4:
         return None, None
     # M = find_homography(np.array(img_points),np.array(obj_points))
-    M = find_homography(np.array(obj_points), np.array(img_points))
+    M = HomographyandPose.find_homography(np.array(obj_points), np.array(img_points))
     print("My H: ", M)
 
     H, mask = cv2.findHomography(np.array(obj_points), np.array(img_points), cv2.RANSAC, 5)
@@ -250,7 +258,9 @@ def get_orientation(bfr, orig_pts, target_pts, bw_target):
     ## using the transformation matrix to find the 4 edges of the image
     h, w = bw_target.shape
     pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1],[w - 1, 0]]).reshape(-1,1, 2)
-    dst = cv2.perspectiveTransform(pts, H)
+    print("pts: ", pts)
+    dst = HomographyandPose.perspective_transform(M, pts)
+    # dst = cv2.perspectiveTransform(pts, M)
     box = np.reshape(dst,(4,2))
     box = np.int0(box)
     print("box: ", box)
@@ -273,7 +283,7 @@ def get_orientation(bfr, orig_pts, target_pts, bw_target):
     img3 = cv2.drawMatches(bw_target, orig_pts, frame, kp_orig, matches, None, **draw_params)
     plt.imshow(img3, 'gray'), plt.show()
     """
-    return angle, box
+    return angle, box, M
 
 """Inputs: points - an array of 4 points.
 Output: Boolean value - true if it's collinear
@@ -421,8 +431,10 @@ Description: This function creates a new image that has the original frame overl
 includes a bounding box around the target, text that displays the angle of rotation, offset angle, and distance
 from camera to target, and has a line from the center of the image to the center of the target.
 """
-def draw_on_image(frame, bfr, angle, offset_angle, distance, cx, cy):
-    cv2.drawContours(frame, [bfr], 0, (0, 255, 0), 5)
+def draw_on_image(frame, bfr, angle, offset_angle, distance, cx, cy, projected_pts):
+    frame = HomographyandPose.draw(frame, bfr, projected_pts)
+    # print("bfr: ", bfr)
+    cv2.drawContours(frame, [bfr], 0, (0, 255, 0), 1)
     return frame
 
 """
@@ -521,14 +533,16 @@ def get_desired_cnt(img):
     return contours[0]
 
 def main():
-    # test image
+    with np.load("tutorial_new_calibration.npz") as data:
+        newcameramtx = data["newmtx"]
 
-    img = cv2.imread("../../images/test/90.jpg")
+    # test image
+    global img
+    img = cv2.imread("../../images/test/315.jpg")
     height = 450
     h, w = img.shape[:2]
     r = height / float(h)
     dim = (int(w * r), height)
-    global img
     img = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
     global img_copy
     img_copy = np.copy(img)
@@ -546,7 +560,7 @@ def main():
     orig = cv2.resize(bw_target, dim, interpolation=cv2.INTER_AREA)
     # contours = get_contours(img)
 
-    annotated_image = process_frame(img, orig, desired_cnt)
+    annotated_image = process_frame(img, orig, desired_cnt, newcameramtx)
     # contours = get_contours(bw_target)
     # best_contour(contours)
     #annotated_image = cv2.resize(annotated_image,(600,600))
