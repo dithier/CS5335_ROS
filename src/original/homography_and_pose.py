@@ -160,14 +160,14 @@ def main():
         corners2 = cv.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
         corners2 = corners2.flatten().reshape(-1, 2)
 
-        H = find_homography(objp, corners2)
+        H = HomographyandPose.find_homography(objp, corners2)
 
-        T, R, t = get_rotation_matrix(H, newcameramtx)
+        T, R, t = HomographyandPose.get_rotation_matrix(H, newcameramtx)
 
         axis = np.float32([[3, 0, 0], [0, 3, 0], [0, 0, -3]]).flatten().reshape((3, 3))
-        projected_pts = project_pts(T, newcameramtx, axis)
+        projected_pts = HomographyandPose.project_pts(T, newcameramtx, axis)
 
-        img = draw(img, corners, projected_pts)
+        img = HomographyandPose.draw(img, corners, projected_pts)
 
         cv.resize(img, (200,200))
         cv.imshow('img', img)
