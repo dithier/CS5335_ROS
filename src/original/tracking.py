@@ -11,6 +11,7 @@ import cv2
 import numpy as np
 import math
 from matplotlib import pyplot as plt
+import yaml
 
 # camera field of view
 CAMERA_FOV = 55
@@ -25,7 +26,7 @@ TARGET_HEIGHT = 11.25
 MATCH_DIST = 30
 
 # the minimum number of keypoint matches there has to be to identify the target
-MATCH_NUM_THRESHOLD = 10
+MATCH_NUM_THRESHOLD = 6
 
 # the number of keypoints to be used to find the best contour
 KEYPOINT_NUM = 25
@@ -37,7 +38,7 @@ SHAPE_MATCH_THRESHOLD = 0.1
 RADIUS = 50
 
 # size for one unit of the axis in the reference frame of 1.jpg
-AXIS_SIZE = 50
+AXIS_SIZE = 100
 
 """
 process_frame
@@ -56,20 +57,22 @@ It then draws this information on the frame and returns that new frame.
 def process_frame(frame, bw_target, desired_cnt, newcameramtx):
     frame_copy = np.copy(frame)
     # get contours
-    contours = get_contours(frame_copy)
+    contours, roi = get_contours(frame_copy)
     # get rotation angle of target
-    orig_pts, target_pts = get_keypoints(frame, bw_target,contours,desired_cnt)
+    orig_pts, target_pts = get_keypoints(frame, bw_target, roi)
+
     if len(orig_pts) > 0:
         bfr = best_contour(contours, orig_pts, desired_cnt)
     else:
         bfr = None
 
-    """
-    cv2.drawContours(img_copy, [bfr], 0, (0, 255, 0), 5)
-    cv2.imshow("bfr", img_copy)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-    """
+    #"""
+    if bfr is not None:
+        cv2.drawContours(img_copy, [bfr], 0, (0, 255, 0), 5)
+        cv2.imshow("bfr", img_copy)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+    #"""
 
 
     if np.any(bfr):
@@ -123,45 +126,25 @@ Description: This function determines whether or not the target is in the frame.
 of rotation of the object is returned as well the x,y coordinates of keypoints that matched between this frame
 and the target sample image.
 """
-
-
-def get_keypoints(frame, bw_target,contours,desired_cnt):
+def get_keypoints(frame, bw_target, roi):
     grey_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    orb = cv2.ORB_create(nfeatures=10000, scoreType=cv2.ORB_FAST_SCORE)
+    mask = np.zeros(frame.shape[:2], dtype=np.uint8)
+    cv2.drawContours(mask, [roi], 0, (255), -1)
+
+    orb = cv2.ORB_create(nfeatures=100000, scoreType=cv2.ORB_FAST_SCORE, scaleFactor=1.2, fastThreshold=10,
+                         edgeThreshold=27, patchSize=27)
 
     # get keypoints and descriptors for both images
     kp_target, des_target = orb.detectAndCompute(bw_target, None)
-    kp_orig, des_orig = orb.detectAndCompute(grey_frame, None)
+    kp_orig, des_orig = orb.detectAndCompute(grey_frame, mask)
 
+    img2 = cv2.drawKeypoints(frame, kp_orig, None, color=(0, 255, 0), flags=0)
+    plt.imshow(img2), plt.show()
 
-    #bf = cv2.BFMatcher()
-    #matches = bf.knnMatch(des_target, des_orig, k=2)
-    FLANN_INDEX_LSH = 6
-
-    index_params = dict(algorithm = FLANN_INDEX_LSH,
-                        table_number = 6,
-                        key_size = 12,
-                        multi_probe_level = 1)
-    search_params = dict(checks=50)
-
-    flann = cv2.FlannBasedMatcher(index_params, search_params)
-    matches = flann.knnMatch(des_target, des_orig, k=2)
-
-    good = []
-    g = []
-    for m, n in matches:
-        if m.distance < 0.7 * n.distance:
-            good.append(m)
-            # g.append([m])
-    good = sorted(good, key=lambda x: x.distance)
-    g = [[m] for m in good]
-
-    img3 = cv2.drawMatchesKnn(bw_target, kp_target, grey_frame, kp_orig, g[1:25], None, flags=2)
+    img3 = cv2.drawKeypoints(bw_target, kp_target, None, color=(0, 255, 0), flags=0)
     plt.imshow(img3), plt.show()
-    """
-    matches = sorted(good, key=lambda x: x.distance)
-    
+
     # create a matcher and match descriptors
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
     matches = bf.match(des_target, des_orig)
@@ -170,36 +153,24 @@ def get_keypoints(frame, bw_target,contours,desired_cnt):
     matches = sorted(matches, key=lambda x: x.distance)
     # only allow matches where the distance between descriptors is less than MATCH_DIST
     matches = [m for m in matches if m.distance < MATCH_DIST]
-    
-    #img3 = cv2.drawMatches(bw_target, kp_target, frame, kp_orig, matches[:10], None, flags=2)
 
-    #plt.imshow(img3), plt.show()
-    
+    if len(matches) > 0:
+        img3 = cv2.drawMatches(bw_target, kp_target, frame, kp_orig, matches, None, flags=2)
+        plt.imshow(img3), plt.show()
 
     if len(matches) > 0:
         print("last match distance", matches[-1].distance)
-    """
+
     print("num matches: ", len(matches))
 
-    # make sure we have enough good quality matches
-    if len(good) >= MATCH_NUM_THRESHOLD:
-        target_pts = np.float32([kp_target[m.queryIdx].pt for m in good])
-        orig_pts = np.float32([kp_orig[m.trainIdx].pt for m in good])
-
-        target_pts = target_pts if len(target_pts) < KEYPOINT_NUM else target_pts[1:KEYPOINT_NUM]
-        orig_pts = orig_pts if len(orig_pts) < KEYPOINT_NUM else orig_pts[1:KEYPOINT_NUM]
-        """
-        print(target_pts)
-        for pt in target_pts:
-            cv2.circle(orig, tuple(pt), 2, (0, 255, 0), -1)
-
-        cv2.imshow("pt", orig)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-        """
+    # make sure we have enough good qualitty matches
+    if len(matches) >= MATCH_NUM_THRESHOLD:
+        target_pts = np.float32([kp_target[m.queryIdx].pt for m in matches])
+        orig_pts = np.float32([kp_orig[m.trainIdx].pt for m in matches])
 
         return orig_pts, target_pts
-    return [], []
+    else:
+        return [], []
 
 def get_orientation(bfr, orig_pts, target_pts, bw_target):
     """
@@ -212,22 +183,26 @@ def get_orientation(bfr, orig_pts, target_pts, bw_target):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     """
+
+    """
     img_points = []
     obj_points = []
     for i in range(len(target_pts)):
         img_p = orig_pts[i]
         obj_p = target_pts[i]
 
-        """
+   
          cv2.circle(img_copy, tuple(img_p), 20, (0, 255, 0), -1)
 
         cv2.imshow("pt", img_copy)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
-        """
+ 
         if(counter(bfr, [img_p]) == 1):
             img_points.append(img_p)
             obj_points.append(obj_p)
+    """
+
 
     """
     for pt in obj_points:
@@ -243,14 +218,15 @@ def get_orientation(bfr, orig_pts, target_pts, bw_target):
 
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-    """
+    
     if len(obj_points) < 4:
         return None, None
+    """
     # M = find_homography(np.array(img_points),np.array(obj_points))
-    M = HomographyandPose.find_homography(np.array(obj_points), np.array(img_points))
-    print("My H: ", M)
+    H = HomographyandPose.find_homography(np.array(target_pts), np.array(orig_pts))
+    print("My H: ", H)
 
-    H, mask = cv2.findHomography(np.array(obj_points), np.array(img_points), cv2.RANSAC, 5)
+    M, mask = cv2.findHomography(target_pts, orig_pts, cv2.RANSAC, 5)
     # H , mask = cv2.findHomography(np.array(obj_points), np.array(img_points), 0, 5)
     print("CV2 H:", M)
     # matchesMask = mask.ravel().tolist()
@@ -258,12 +234,12 @@ def get_orientation(bfr, orig_pts, target_pts, bw_target):
     ## using the transformation matrix to find the 4 edges of the image
     h, w = bw_target.shape
     pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1],[w - 1, 0]]).reshape(-1,1, 2)
+    # pts = np.float32([[41, 49], [40, 398], [322, 395], [322, 50]]).reshape(-1,1, 2)
     print("pts: ", pts)
     dst = HomographyandPose.perspective_transform(M, pts)
     # dst = cv2.perspectiveTransform(pts, M)
     box = np.reshape(dst,(4,2))
     box = np.int0(box)
-    print("box: ", box)
 
     b = M[0][1];
     a = M[0][0];
@@ -452,14 +428,28 @@ def get_contours(frame):
 
     kernel = np.ones((5, 5), np.uint8)
 
+    # top right orange corner of box with webcam settings
+    lower_orange = np.array([9, 92, 88])
+    upper_orange = np.array([19, 124, 142])
+    mask0 = cv2.inRange(hsv, lower_orange, upper_orange)
+
+    # main red color of box with webcam settings
+    lower_red = np.array([5, 115, 62])
+    upper_red = np.array([215, 191, 144])
+    mask1 = cv2.inRange(hsv, lower_red, upper_red)
+
+    """
+    # top right orange corner of box with phone settings
     lower_orange = np.array([21, 67, 149])
     upper_orange = np.array([95, 255, 255])
     mask0 = cv2.inRange(hsv, lower_orange, upper_orange)
 
-    # main red color of box
+    # main red color of box with phone settings
     lower_red = np.array([166, 77, 58])
     upper_red = np.array([188, 216, 235])
     mask1 = cv2.inRange(hsv, lower_red, upper_red)
+    """
+
 
     # increase edges that are not thick at bottom of box
     # mask1 = cv2.dilate(mask1, kernel, iterations=2)
@@ -476,6 +466,12 @@ def get_contours(frame):
     # contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     contours = sorted(contours, key=lambda contour:cv2.contourArea(contour), reverse=True)
+
+    cnt = contours[0]
+    rect = cv2.minAreaRect(cnt)
+    roi = cv2.boxPoints(rect)
+    roi = np.int0(roi)
+
     """
     cv2.imshow('orange', mask0)
     cv2.waitKey(0)
@@ -507,23 +503,8 @@ def get_contours(frame):
     cv2.imshow('BFR', frame)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-    
-    cnt = contours[0]
-    hull = cv2.convexHull(cnt, False)
-    cv2.drawContours(frame, [hull], 0, (0,255,0), 6)
-    cv2.imshow('convex hull', frame)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-    
-    rect = cv2.minAreaRect(cnt)
-    box = cv2.boxPoints(rect)
-    box = np.int0(box)
-    cv2.drawContours(frame, [box], 0, (0, 255, 255), 2)
-    cv2.imshow('BFR', frame)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
     """
-    return contours
+    return contours, roi
 
 def get_desired_cnt(img):
     img_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -533,12 +514,19 @@ def get_desired_cnt(img):
     return contours[0]
 
 def main():
-    with np.load("tutorial_new_calibration.npz") as data:
-        newcameramtx = data["newmtx"]
+    path = "../scripts/"
+    filename = path + "webcam.yaml"
+
+    with open(filename, "r") as file_handle:
+        calib_data = yaml.load(file_handle)
+
+    cameramtx = calib_data["camera_matrix"]["data"]
+    cameramtx = np.array(cameramtx).reshape((3,3))
 
     # test image
     global img
-    img = cv2.imread("../../images/test/315.jpg")
+    img = cv2.imread("../../images/tracking2/15.jpeg")
+    # img = cv2.imread("../../images/test/45.jpg")
     height = 450
     h, w = img.shape[:2]
     r = height / float(h)
@@ -552,6 +540,7 @@ def main():
     desired_cnt = get_desired_cnt(desired)
 
     # image that has target in it at 0 degree rotation
+    # bw_target = cv2.imread("../../images/2.png", 0)
     bw_target = cv2.imread("../../images/1.jpg", 0)
     h, w = bw_target.shape[:2]
     r = height / float(h)
@@ -560,7 +549,7 @@ def main():
     orig = cv2.resize(bw_target, dim, interpolation=cv2.INTER_AREA)
     # contours = get_contours(img)
 
-    annotated_image = process_frame(img, orig, desired_cnt, newcameramtx)
+    annotated_image = process_frame(img, orig, desired_cnt, cameramtx)
     # contours = get_contours(bw_target)
     # best_contour(contours)
     #annotated_image = cv2.resize(annotated_image,(600,600))
