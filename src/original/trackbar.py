@@ -26,7 +26,7 @@ def nothing(x):
     pass
 
 def main():
-    mode = "red"
+    mode = "orange"
 
     source = "webcam"
     """
@@ -87,12 +87,12 @@ def main():
             lower_orange = np.array([15, 67, 149])
             upper_orange = np.array([95, 255, 255])
             """
-            h_low_start = 3
-            s_low_start = 89
-            v_low_start = 70
-            h_high_start = 18
-            s_high_start = 131
-            v_high_start = 158
+            h_low_start = 9
+            s_low_start = 92
+            v_low_start = 88
+            h_high_start = 19
+            s_high_start = 124
+            v_high_start = 142
         elif mode == "red":
             """
             h_low_start = 0
@@ -102,16 +102,16 @@ def main():
             s_high_start = 205
             v_high_start = 127
             """
-            h_low_start = 0
-            s_low_start = 118
-            v_low_start = 65
-            h_high_start = 255
-            s_high_start = 190
-            v_high_start = 160
+            h_low_start = 5
+            s_low_start = 115
+            v_low_start = 62
+            h_high_start = 215
+            s_high_start = 191
+            v_high_start = 144
 
 
     cv2.namedWindow('image')
-    img = cv2.imread("../../images/calibration/0_20_28.png")
+    img = cv2.imread("../../images/tracking2/0.jpeg")
     # img = cv2.imread("../../images/calibration/0.jpeg")
     #img = cv2.imread("../../images/test/135_tiles.png")
     height = 300
