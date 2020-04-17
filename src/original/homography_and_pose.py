@@ -67,9 +67,9 @@ class HomographyandPose:
         temp = tuple(pts[0, 0:2])
         print("corner", corner)
         print("pt", temp)
-        img = cv.line(img, corner, tuple(pts[0, 0:2]), (255, 0, 0), 3)
-        img = cv.line(img, corner, tuple(pts[1, 0:2]), (0, 255, 0), 3)
-        img = cv.line(img, corner, tuple(pts[2, 0:2]), (0, 0, 255), 3)
+        img = cv.line(img, corner, tuple(pts[0, 0:2]), (255, 0, 0), 4)
+        img = cv.line(img, corner, tuple(pts[1, 0:2]), (0, 255, 0), 4)
+        img = cv.line(img, corner, tuple(pts[2, 0:2]), (0, 0, 255), 4)
         return img
 
     @staticmethod
@@ -131,6 +131,66 @@ class HomographyandPose:
 
         return H
 
+    @staticmethod
+    def compute_inliers(H, obj_pts, img_pts, t):
+        inliers = 0
+        estimated_img_pts = HomographyandPose.perspective_transform(H, obj_pts)
+        estimated_img_pts = np.array(estimated_img_pts)
+        estimated_img_pts = estimated_img_pts.flatten().reshape(-1, 2)
+        all_ssd = []
+        for i in range(np.size(img_pts, 0)):
+            ssd = ((img_pts[i] - estimated_img_pts[i])**2).sum()
+            all_ssd.append(ssd)
+            if ssd < t:
+                inliers += 1
+        return inliers
+
+    @staticmethod
+    def check_Collinear(points):
+        threshold = 0.3
+        # 1, 2, 3
+        if math.fabs((points[2][1] - points[1][1]) * (points[1][0] - points[0][0]) - (points[1][1] - points[0][1]) * (
+                points[2][0] - points[1][0])) < threshold:
+            return False
+        else:
+            # 1 3 4
+            if math.fabs(
+                    (points[3][1] - points[2][1]) * (points[2][0] - points[0][0]) - (points[2][1] - points[0][1]) * (
+                            points[3][0] - points[2][0])) < threshold:
+                return False
+        return True
+
+
+    @staticmethod
+    def RANSAC(obj_pts, img_pts):
+        # number of points to be used in model
+        p = 4
+        # number of different points we have
+        n = len(obj_pts)
+        # distance threshold
+        t = 5
+        # ideal homography
+        H = np.identity(3)
+        # number of iterations to run ransac
+        N = 2000
+        # best number of inliers
+        inliers_best = 0
+        # counter
+        i = 0
+        while i < N:
+            indices = np.random.randint(0, n-1, size=p)
+            obj_subset = obj_pts[indices]
+            img_subset = img_pts[indices]
+            if not HomographyandPose.check_Collinear(obj_subset):
+                print("points are colinear")
+                continue
+            Hk = HomographyandPose.find_homography(obj_subset, img_subset)
+            num_inliers = HomographyandPose.compute_inliers(Hk, obj_pts, img_pts, t)
+            if num_inliers > inliers_best:
+                H = Hk
+                inliers_best = num_inliers
+            i += 1
+        return H
 
 
 def draw_cv(img, corners, imgpts):
@@ -141,11 +201,13 @@ def draw_cv(img, corners, imgpts):
     return img
 
 def main():
-    with np.load("tutorial_calibration.npz") as data:
+    """
+        with np.load("tutorial_calibration.npz") as data:
         mtx, dist = [data[i] for i in ("mtx", "dist")]
 
     with np.load("tutorial_new_calibration.npz") as data:
         newcameramtx = data["newmtx"]
+
 
     objp = np.zeros((6 * 7, 3), np.float32)
     objp[:, :2] = np.mgrid[0:7, 0:6].T.reshape(-1, 2)
@@ -176,7 +238,15 @@ def main():
         cv.imshow('img', img)
         cv.waitKey(0)
         cv.destroyAllWindows()
+    """
 
+    with np.load("homography_pts.npz") as data:
+        obj_pts, img_pts, cv_homography = [data[i] for i in ("obj_pts", "img_pts", "cv_homo")]
+
+    H = HomographyandPose.RANSAC(obj_pts, img_pts)
+    print("my H", H)
+
+    print("openCV H", cv_homography)
 
 if __name__ == "__main__":
     main()
