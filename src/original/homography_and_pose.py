@@ -132,18 +132,24 @@ class HomographyandPose:
         return H
 
     @staticmethod
-    def compute_inliers(H, obj_pts, img_pts, t):
+    def compute_inliers(H, obj_pts, img_pts, d):
         inliers = 0
         estimated_img_pts = HomographyandPose.perspective_transform(H, obj_pts)
         estimated_img_pts = np.array(estimated_img_pts)
         estimated_img_pts = estimated_img_pts.flatten().reshape(-1, 2)
         all_ssd = []
+        obj_inliers = []
+        img_inliers = []
         for i in range(np.size(img_pts, 0)):
             ssd = ((img_pts[i] - estimated_img_pts[i])**2).sum()
             all_ssd.append(ssd)
-            if ssd < t:
+            if ssd < d:
                 inliers += 1
-        return inliers
+                obj_inliers.append(obj_pts[i])
+                img_inliers.append(img_pts[i])
+        obj_inliers = np.array(obj_inliers)
+        img_inliers = np.array(img_inliers)
+        return inliers, obj_inliers, img_inliers
 
     @staticmethod
     def check_Collinear(points):
@@ -168,29 +174,53 @@ class HomographyandPose:
         # number of different points we have
         n = len(obj_pts)
         # distance threshold
-        t = 5
+        d = 5
         # ideal homography
-        H = np.identity(3)
+        H = np.array([])
         # number of iterations to run ransac
         N = 2000
         # best number of inliers
-        inliers_best = 0
+        num_inliers_best = 0
+        # an array of the inlier points corresponding to the best number of inliers
+        best_obj_inliers = np.array([])
+        best_img_inliers = np.array([])
+        # number of nearby points required to assert a model fits well
+        T = 15 - p
         # counter
         i = 0
         while i < N:
+            # draw a sample of p points from the data
             indices = np.random.randint(0, n-1, size=p)
             obj_subset = obj_pts[indices]
             img_subset = img_pts[indices]
+
+            # go to next iteration if points are collinear
             if not HomographyandPose.check_Collinear(obj_subset):
-                print("points are colinear")
                 continue
+
+            # fit points
             Hk = HomographyandPose.find_homography(obj_subset, img_subset)
-            num_inliers = HomographyandPose.compute_inliers(Hk, obj_pts, img_pts, t)
-            if num_inliers > inliers_best:
-                H = Hk
-                inliers_best = num_inliers
+
+            # find each data point outside of sample
+            outside_indices = [i for i in range(n) if obj_pts[i] not in obj_subset]
+            obj_pts_outside = obj_pts[outside_indices]
+            img_pts_outside = img_pts[outside_indices]
+
+            # calculate number of inliers and the inliers
+            num_inliers, obj_inliers, img_inliers = HomographyandPose.compute_inliers(Hk, obj_pts_outside, img_pts_outside, d)
+
+            if num_inliers > num_inliers_best:
+                num_inliers_best = num_inliers
+                best_obj_inliers = np.vstack((obj_subset, obj_inliers))
+                best_img_inliers = np.vstack((img_subset, img_inliers))
             i += 1
-        return H
+        print("inliers found: ", num_inliers_best)
+        print("best_img_inliers shape: ", best_img_inliers.shape)
+        print("best_obj_inliers shape", best_obj_inliers.shape)
+        if num_inliers_best >= T:
+            return HomographyandPose.find_homography(best_obj_inliers, best_img_inliers)
+        else:
+            return H
 
 
 def draw_cv(img, corners, imgpts):
