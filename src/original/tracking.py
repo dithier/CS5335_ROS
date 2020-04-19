@@ -452,24 +452,26 @@ def get_contours(frame):
 
     kernel = np.ones((5, 5), np.uint8)
 
-    
-     # top right orange corner of box with webcam settings
-    lower_orange = np.array([9, 92, 88])
-    upper_orange = np.array([19, 124, 142])
-
     # top right orange corner of box with webcam settings
     lower_orange = np.array([2, 74, 30])
     upper_orange = np.array([15, 190, 123])
-
-    # top right orange corner of box with phone settings
-    lower_orange = np.array([21, 67, 149])
-    upper_orange = np.array([95, 255, 255])
     mask0 = cv2.inRange(hsv, lower_orange, upper_orange)
 
     # main red color of box with phone settings
-    lower_red = np.array([166, 77, 58])
-    upper_red = np.array([188, 216, 235])
+    lower_red = np.array([0, 126, 45])
+    upper_red = np.array([180, 213, 193])
     mask1 = cv2.inRange(hsv, lower_red, upper_red)
+
+    """
+        # top right orange corner of box with phone settings
+        lower_orange = np.array([21, 67, 149])
+        upper_orange = np.array([95, 255, 255])
+        mask0 = cv2.inRange(hsv, lower_orange, upper_orange)
+        # main red color of box with phone settings
+        lower_red = np.array([166, 77, 58])
+        upper_red = np.array([188, 216, 235])
+        mask1 = cv2.inRange(hsv, lower_red, upper_red)
+    """
 
 
     # increase edges that are not thick at bottom of box
