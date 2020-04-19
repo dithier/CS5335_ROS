@@ -12,6 +12,7 @@ import numpy as np
 import math
 from matplotlib import pyplot as plt
 import yaml
+import time
 
 # camera field of view
 CAMERA_FOV = 55
@@ -23,7 +24,7 @@ TARGET_WIDTH = 9.25
 TARGET_HEIGHT = 11.25
 
 # the maximum allowed distance for matches
-MATCH_DIST = 30
+MATCH_DIST = 27
 
 # the minimum number of keypoint matches there has to be to identify the target
 MATCH_NUM_THRESHOLD = 6
@@ -88,6 +89,7 @@ def process_frame(frame, bw_target, desired_cnt, newcameramtx):
             cv2.waitKey(0)
             cv2.destroyAllWindows()
             """
+
             # find coordinates of center of contour
             cx, cy = find_center(box)
 
@@ -97,6 +99,7 @@ def process_frame(frame, bw_target, desired_cnt, newcameramtx):
             # find the distance of the camera to the target
             distance = calculate_distance(frame, box) # carter
 
+
             # annotate and draw extra information onto the frame
             #frame = draw_on_image(frame, bfr, angle, offset_angle, distance, cx, cy) # vinay
 
@@ -104,6 +107,13 @@ def process_frame(frame, bw_target, desired_cnt, newcameramtx):
 
             axis = np.float32([[AXIS_SIZE, 0, 0], [0, AXIS_SIZE, 0], [0, 0, -AXIS_SIZE]]).flatten().reshape((3, 3))
             projected_pts = HomographyandPose.project_pts(T, newcameramtx, axis)
+
+            """
+            offset_angle = 0
+            distance = 0
+            cx = 0
+            cy = 0
+            """
 
             frame = draw_on_image(frame, box, angle, offset_angle, distance, cx, cy, projected_pts)  # vinay
         else:
@@ -222,22 +232,36 @@ def get_orientation(bfr, orig_pts, target_pts, bw_target):
     if len(obj_points) < 4:
         return None, None
     """
-    # M = find_homography(np.array(img_points),np.array(obj_points))
-    H = HomographyandPose.find_homography(np.array(target_pts), np.array(orig_pts))
-    print("My H: ", H)
 
-    M, mask = cv2.findHomography(target_pts, orig_pts, cv2.RANSAC, 5)
+    # M = find_homography(np.array(img_points),np.array(obj_points))
+    # H = HomographyandPose.find_homography(np.array(target_pts), np.array(orig_pts))
+
+    start = time.time()
+    M = HomographyandPose.RANSAC(target_pts, orig_pts)
+    end = time.time()
+    print("My H: ", M)
+    print("my ransac elapsed time: ", end - start)
+
+    start = time.time()
+    H, mask = cv2.findHomography(target_pts, orig_pts, cv2.RANSAC, 5)
+    end = time.time()
     # H , mask = cv2.findHomography(np.array(obj_points), np.array(img_points), 0, 5)
-    print("CV2 H:", M)
+    print("CV2 H:", H)
+    print("opencv elapsed time: ", end - start)
     # matchesMask = mask.ravel().tolist()
+
+    if len(M) == 0:
+        return None, None, None
+
+    # np.savez("homography_pts", obj_pts=target_pts, img_pts=orig_pts, cv_homo=M)
 
     ## using the transformation matrix to find the 4 edges of the image
     h, w = bw_target.shape
     pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1],[w - 1, 0]]).reshape(-1,1, 2)
     # pts = np.float32([[41, 49], [40, 398], [322, 395], [322, 50]]).reshape(-1,1, 2)
     print("pts: ", pts)
-    dst = HomographyandPose.perspective_transform(M, pts)
-    # dst = cv2.perspectiveTransform(pts, M)
+    # dst = HomographyandPose.perspective_transform(H, pts)
+    dst = cv2.perspectiveTransform(pts, H)
     box = np.reshape(dst,(4,2))
     box = np.int0(box)
 
@@ -259,7 +283,7 @@ def get_orientation(bfr, orig_pts, target_pts, bw_target):
     img3 = cv2.drawMatches(bw_target, orig_pts, frame, kp_orig, matches, None, **draw_params)
     plt.imshow(img3, 'gray'), plt.show()
     """
-    return angle, box, M
+    return angle, box, H
 
 """Inputs: points - an array of 4 points.
 Output: Boolean value - true if it's collinear
@@ -410,7 +434,7 @@ from camera to target, and has a line from the center of the image to the center
 def draw_on_image(frame, bfr, angle, offset_angle, distance, cx, cy, projected_pts):
     frame = HomographyandPose.draw(frame, bfr, projected_pts)
     # print("bfr: ", bfr)
-    cv2.drawContours(frame, [bfr], 0, (0, 255, 0), 1)
+    cv2.drawContours(frame, [bfr], 0, (0, 255, 255), 1)
     return frame
 
 """
@@ -428,7 +452,8 @@ def get_contours(frame):
 
     kernel = np.ones((5, 5), np.uint8)
 
-    # top right orange corner of box with webcam settings
+    """
+     # top right orange corner of box with webcam settings
     lower_orange = np.array([9, 92, 88])
     upper_orange = np.array([19, 124, 142])
     mask0 = cv2.inRange(hsv, lower_orange, upper_orange)
@@ -437,8 +462,8 @@ def get_contours(frame):
     lower_red = np.array([5, 115, 62])
     upper_red = np.array([215, 191, 144])
     mask1 = cv2.inRange(hsv, lower_red, upper_red)
-
     """
+
     # top right orange corner of box with phone settings
     lower_orange = np.array([21, 67, 149])
     upper_orange = np.array([95, 255, 255])
@@ -448,7 +473,6 @@ def get_contours(frame):
     lower_red = np.array([166, 77, 58])
     upper_red = np.array([188, 216, 235])
     mask1 = cv2.inRange(hsv, lower_red, upper_red)
-    """
 
 
     # increase edges that are not thick at bottom of box
@@ -462,8 +486,8 @@ def get_contours(frame):
 
 
     ret, thresh = cv2.threshold(closing, 127, 255, cv2.THRESH_BINARY)
-    image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    # contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    # image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     contours = sorted(contours, key=lambda contour:cv2.contourArea(contour), reverse=True)
 
@@ -509,8 +533,8 @@ def get_contours(frame):
 def get_desired_cnt(img):
     img_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     _, thresh = cv2.threshold(img_grey, 127, 255, 0)
-    image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    # contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    # image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     return contours[0]
 
 def main():
@@ -525,8 +549,8 @@ def main():
 
     # test image
     global img
-    img = cv2.imread("../../images/tracking2/15.jpeg")
-    # img = cv2.imread("../../images/test/45.jpg")
+    #img = cv2.imread("../../images/tracking2/0.jpeg")
+    img = cv2.imread("../../images/test/45.jpg")
     height = 450
     h, w = img.shape[:2]
     r = height / float(h)
@@ -540,8 +564,8 @@ def main():
     desired_cnt = get_desired_cnt(desired)
 
     # image that has target in it at 0 degree rotation
-    # bw_target = cv2.imread("../../images/2.png", 0)
-    bw_target = cv2.imread("../../images/1.jpg", 0)
+    bw_target = cv2.imread("../../images/2.jpg", 0)
+    #bw_target = cv2.imread("../../images/1.jpg", 0)
     h, w = bw_target.shape[:2]
     r = height / float(h)
     dim = (int(w * r), height)
