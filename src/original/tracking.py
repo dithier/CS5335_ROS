@@ -140,10 +140,10 @@ def get_keypoints(frame, bw_target, roi):
     kp_orig, des_orig = orb.detectAndCompute(grey_frame, mask)
 
     img2 = cv2.drawKeypoints(frame, kp_orig, None, color=(0, 255, 0), flags=0)
-    plt.imshow(img2), plt.show()
+    #1plt.imshow(img2), plt.show()
 
     img3 = cv2.drawKeypoints(bw_target, kp_target, None, color=(0, 255, 0), flags=0)
-    plt.imshow(img3), plt.show()
+    #1plt.imshow(img3), plt.show()
 
     # create a matcher and match descriptors
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
@@ -156,7 +156,7 @@ def get_keypoints(frame, bw_target, roi):
 
     if len(matches) > 0:
         img3 = cv2.drawMatches(bw_target, kp_target, frame, kp_orig, matches, None, flags=2)
-        plt.imshow(img3), plt.show()
+        #1plt.imshow(img3), plt.show()
 
     if len(matches) > 0:
         print("last match distance", matches[-1].distance)
@@ -429,13 +429,13 @@ def get_contours(frame):
     kernel = np.ones((5, 5), np.uint8)
 
     # top right orange corner of box with webcam settings
-    lower_orange = np.array([9, 92, 88])
-    upper_orange = np.array([19, 124, 142])
+    lower_orange = np.array([2, 74, 30])
+    upper_orange = np.array([15, 190, 123])
     mask0 = cv2.inRange(hsv, lower_orange, upper_orange)
 
     # main red color of box with webcam settings
-    lower_red = np.array([5, 115, 62])
-    upper_red = np.array([215, 191, 144])
+    lower_red = np.array([0, 126, 45])
+    upper_red = np.array([180, 213, 193])
     mask1 = cv2.inRange(hsv, lower_red, upper_red)
 
     """
@@ -472,7 +472,7 @@ def get_contours(frame):
     roi = cv2.boxPoints(rect)
     roi = np.int0(roi)
 
-    """
+    
     cv2.imshow('orange', mask0)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
@@ -503,7 +503,7 @@ def get_contours(frame):
     cv2.imshow('BFR', frame)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-    """
+    
     return contours, roi
 
 def get_desired_cnt(img):
