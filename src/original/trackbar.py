@@ -26,7 +26,7 @@ def nothing(x):
     pass
 
 def main():
-    mode = "orange"
+    mode = "red"
 
     source = "webcam"
     """
@@ -34,7 +34,7 @@ def main():
     color = np.uint8([[[0, 165, 255]]])
     """
     if source == "phone":
-        if mode == "orange":
+        if mode == "red":
             """
             lower_orange = np.array([15, 67, 149])
             upper_orange = np.array([95, 255, 255])
@@ -87,27 +87,27 @@ def main():
             lower_orange = np.array([15, 67, 149])
             upper_orange = np.array([95, 255, 255])
             """
-            h_low_start = 9
-            s_low_start = 92
-            v_low_start = 88
-            h_high_start = 19
-            s_high_start = 124
-            v_high_start = 142
+            h_low_start = 2
+            s_low_start = 74
+            v_low_start = 30
+            h_high_start = 15
+            s_high_start = 190
+            v_high_start = 123
         elif mode == "red":
             """
             h_low_start = 0
-            s_low_start = 150
+            s_low_start = 126
             v_low_start = 45
-            h_high_start = 255
-            s_high_start = 205
-            v_high_start = 127
+            h_high_start = 180
+            s_high_start = 213
+            v_high_start = 193
             """
-            h_low_start = 5
-            s_low_start = 115
-            v_low_start = 62
-            h_high_start = 215
-            s_high_start = 191
-            v_high_start = 144
+            h_low_start = 9
+            s_low_start = 95
+            v_low_start = 65
+            h_high_start = 179
+            s_high_start = 211
+            v_high_start = 189
 
 
     cv2.namedWindow('image')
