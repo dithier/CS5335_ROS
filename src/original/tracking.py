@@ -106,7 +106,8 @@ def process_frame(frame, bw_target, desired_cnt, newcameramtx):
 
             T, R, t = HomographyandPose.get_rotation_matrix(H, newcameramtx)
 
-            r = Rotation.from_matrix(R)
+            #r = Rotation.from_matrix(R)
+            r = Rotation.from_dcm(R)
             quaternion = r.as_quat()
 
             print("q", quaternion)
@@ -496,7 +497,7 @@ def get_contours(frame):
 
     ret, thresh = cv2.threshold(closing, 127, 255, cv2.THRESH_BINARY)
     # image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    _,contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     contours = sorted(contours, key=lambda contour:cv2.contourArea(contour), reverse=True)
 
@@ -542,30 +543,26 @@ def get_desired_cnt(img):
     img_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     _, thresh = cv2.threshold(img_grey, 127, 255, 0)
     # image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    _,contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     return contours[0]
 
 ## Function to find the position of the object in meters w.r.t. the camera
 def find_position(bw_target,frame,H,bfr):
     height, width = frame.shape[:2]
-    print(bfr)
     w1 = math.fabs(bfr[3][0] - bfr[0][0])
     w2 = math.fabs(bfr[2][0] - bfr[1][0])
     width_img = (w1 + w2) / 2.0  # avg the widths of the two sides of the image
     width_of_frame=TARGET_WIDTH*width/width_img
-    print("width of image = ",width_of_frame)
-
 
     #
     h1 = math.fabs(bfr[1][1] - bfr[0][1])
     h2 = math.fabs(bfr[2][1] - bfr[3][1])
     height_img = (h1 + h2) / 2.0  # avg the height of the two sides of the image
     height_of_frame=TARGET_HEIGHT*height/height_img
-    print("width of image = ",height_of_frame)
     #
     target_h,target_w = bw_target.shape[:2]
     frame_h,frame_w = frame.shape[:2]
-    print("size",frame_h,frame_w)
+    
 
     ###
     original_image_w = 1726
