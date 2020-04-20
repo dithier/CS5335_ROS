@@ -149,7 +149,7 @@ class HomographyandPose:
                 img_inliers.append(img_pts[i])
         obj_inliers = np.array(obj_inliers)
         img_inliers = np.array(img_inliers)
-        return inliers, obj_inliers, img_inliers
+        return inliers, obj_inliers, img_inliers, all_ssd
 
     @staticmethod
     def check_Collinear(points):
@@ -174,7 +174,7 @@ class HomographyandPose:
         # number of different points we have
         n = len(obj_pts)
         # distance threshold
-        d = 5
+        d = 3
         # ideal homography
         H = np.array([])
         # number of iterations to run ransac
@@ -185,9 +185,9 @@ class HomographyandPose:
         best_obj_inliers = np.array([])
         best_img_inliers = np.array([])
         # number of nearby points required to assert a model fits well
-        T = 15 - p
+        T = 30 - p
         # counter
-        #i = 0
+        collinear = 0
         # while i < N:
         for i in range(N):
             # draw a sample of p points from the data
@@ -197,7 +197,7 @@ class HomographyandPose:
 
             # go to next iteration if points are collinear
             if not HomographyandPose.check_Collinear(obj_subset):
-                print("points are collinear")
+                collinear += 1
                 continue
 
             # fit points
@@ -209,17 +209,24 @@ class HomographyandPose:
             img_pts_outside = img_pts[outside_indices]
 
             # calculate number of inliers and the inliers
-            num_inliers, obj_inliers, img_inliers = HomographyandPose.compute_inliers(Hk, obj_pts_outside, img_pts_outside, d)
+            num_inliers, obj_inliers, img_inliers, _ = HomographyandPose.compute_inliers(Hk, obj_pts_outside, img_pts_outside, d)
             if num_inliers > num_inliers_best:
+                print("changing best estimate; ", i)
                 num_inliers_best = num_inliers
                 best_obj_inliers = np.vstack((obj_subset, obj_inliers))
                 best_img_inliers = np.vstack((img_subset, img_inliers))
             #i += 1
+        print("total number of points", n)
+        print("number of colinear: ", collinear)
         print("inliers found: ", num_inliers_best)
         print("best_img_inliers shape: ", best_img_inliers.shape)
         print("best_obj_inliers shape", best_obj_inliers.shape)
         if num_inliers_best >= T:
-            return HomographyandPose.find_homography(best_obj_inliers, best_img_inliers)
+            H = HomographyandPose.find_homography(best_obj_inliers, best_img_inliers)
+            _, _, _, all_ssd = HomographyandPose.compute_inliers(H, best_obj_inliers, best_img_inliers, d)
+            avg_ssd = sum(all_ssd) / len(all_ssd)
+            print("avg ssd: ", avg_ssd)
+            return H
         else:
             return H
 
