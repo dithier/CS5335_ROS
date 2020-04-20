@@ -78,7 +78,7 @@ def process_frame(frame, bw_target, desired_cnt, newcameramtx):
 
     if np.any(bfr):
         angle, box, H = get_orientation(bfr, orig_pts, target_pts, bw_target)
-
+	x,y,z= find_position(bw_target,frame,H,box)
         if angle is not None:
 
             print("angle", angle)
@@ -97,8 +97,8 @@ def process_frame(frame, bw_target, desired_cnt, newcameramtx):
             offset_angle = get_offset_angle(frame, cx)
 
             # find the distance of the camera to the target
-            distance = calculate_distance(frame, box) # carter
-
+            #distance = calculate_distance(frame, box) # carter
+            distance = z
 
             # annotate and draw extra information onto the frame
             #frame = draw_on_image(frame, bfr, angle, offset_angle, distance, cx, cy) # vinay
@@ -324,11 +324,9 @@ Description: This function calculates the distance from the target to the camera
 """
 def calculate_distance(frame, bfr):
     height, width, channels = frame.shape
-
     w1 = math.fabs(bfr[3][0] - bfr[0][0])
     w2 = math.fabs(bfr[2][0] - bfr[1][0])
     width_img = (w1 + w2) / 2.0  # avg the widths of the two sides of the image
-
     w=TARGET_WIDTH*width/width_img
     distance = ((w/2)/math.tan(CAMERA_FOV*math.pi/360.0))/12.0 #in feet
     print('distance: ',distance)
@@ -495,7 +493,7 @@ def get_contours(frame):
     roi = cv2.boxPoints(rect)
     roi = np.int0(roi)
 
-    
+    '''
     cv2.imshow('orange', mask0)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
@@ -526,7 +524,7 @@ def get_contours(frame):
     cv2.imshow('BFR', frame)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-    
+    '''
     return contours, roi
 
 def get_desired_cnt(img):
@@ -535,6 +533,53 @@ def get_desired_cnt(img):
     image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     # contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     return contours[0]
+
+## Function to find the position of the object in meters w.r.t. the camera
+def find_position(bw_target,frame,H,bfr):
+    height, width = frame.shape[:2]
+    print(bfr)
+    w1 = math.fabs(bfr[3][0] - bfr[0][0])
+    w2 = math.fabs(bfr[2][0] - bfr[1][0])
+    width_img = (w1 + w2) / 2.0  # avg the widths of the two sides of the image
+    width_of_frame=TARGET_WIDTH*width/width_img
+    print("width of image = ",width_of_frame)
+
+
+    #
+    h1 = math.fabs(bfr[1][1] - bfr[0][1])
+    h2 = math.fabs(bfr[2][1] - bfr[3][1])
+    height_img = (h1 + h2) / 2.0  # avg the height of the two sides of the image
+    height_of_frame=TARGET_HEIGHT*height/height_img
+    print("width of image = ",height_of_frame)
+    #
+    target_h,target_w = bw_target.shape[:2]
+    frame_h,frame_w = frame.shape[:2]
+    print("size",frame_h,frame_w)
+
+    ###
+    original_image_w = 1726
+    original_image_h = 2120
+    ar_tag_w = 936 #center of ar tag on image 2.jpg
+    ar_tag_h = 647 #center of ar tag on image 2.jpg
+    ###
+    h = ar_tag_h*target_h/original_image_h
+    w = ar_tag_w*target_w/original_image_w
+    
+    pts = np.float32([[h-1, w-1], [h-1, w + 1], [h + 1, w + 1],[h + 1, w-1]]).reshape(-1,1, 2)
+    dst = cv2.perspectiveTransform(pts, H)
+    box = np.reshape(dst,(4,2))
+    box = np.int0(box)
+    x,y = find_center(box)
+    y = -1*(y-frame_h/2) *height_of_frame*0.0254/frame_h  
+    x = (x-frame_w/2) *width_of_frame*0.0254/frame_w    #in meters
+    
+    z = calculate_distance(frame,bfr)/3.208 #in meters
+
+    #cv2.drawContours(frame, [box], 0, (0, 255, 0), 1)
+    #cv2.imshow('position',frame)
+    print('Position',[x,y,z])
+    return x,y,z
+
 
 def main():
     path = "../scripts/"
@@ -548,7 +593,7 @@ def main():
 
     # test image
     global img
-    img = cv2.imread("../../images/tracking2/3.jpeg")
+    img = cv2.imread("../../images/tracking2/13.jpeg")
     #img = cv2.imread("../../images/test/45.jpg")
     height = 450
     h, w = img.shape[:2]
