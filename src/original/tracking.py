@@ -13,6 +13,7 @@ import math
 from matplotlib import pyplot as plt
 import yaml
 import time
+from scipy.spatial.transform import Rotation
 
 # camera field of view
 CAMERA_FOV = 55
@@ -33,7 +34,7 @@ MATCH_NUM_THRESHOLD = 6
 KEYPOINT_NUM = 25
 
 # threshold for matching shapes to confirm box match
-SHAPE_MATCH_THRESHOLD = 0.1
+SHAPE_MATCH_THRESHOLD = 0.3
 
 # min distance that keypoints have to be apart
 RADIUS = 50
@@ -105,6 +106,11 @@ def process_frame(frame, bw_target, desired_cnt, newcameramtx):
 
             T, R, t = HomographyandPose.get_rotation_matrix(H, newcameramtx)
 
+            r = Rotation.from_matrix(R)
+            quaternion = r.as_quat()
+
+            print("q", quaternion)
+
             axis = np.float32([[AXIS_SIZE, 0, 0], [0, AXIS_SIZE, 0], [0, 0, -AXIS_SIZE]]).flatten().reshape((3, 3))
             projected_pts = HomographyandPose.project_pts(T, newcameramtx, axis)
 
@@ -143,17 +149,17 @@ def get_keypoints(frame, bw_target, roi):
     cv2.drawContours(mask, [roi], 0, (255), -1)
 
     orb = cv2.ORB_create(nfeatures=100000, scoreType=cv2.ORB_FAST_SCORE, scaleFactor=1.2, fastThreshold=10,
-                         edgeThreshold=27, patchSize=27)
+                         edgeThreshold=20, patchSize=20)
 
     # get keypoints and descriptors for both images
     kp_target, des_target = orb.detectAndCompute(bw_target, None)
     kp_orig, des_orig = orb.detectAndCompute(grey_frame, mask)
 
     img2 = cv2.drawKeypoints(frame, kp_orig, None, color=(0, 255, 0), flags=0)
-    #1plt.imshow(img2), plt.show()
+    # plt.imshow(img2), plt.show()
 
     img3 = cv2.drawKeypoints(bw_target, kp_target, None, color=(0, 255, 0), flags=0)
-    #1plt.imshow(img3), plt.show()
+    # plt.imshow(img3), plt.show()
 
     # create a matcher and match descriptors
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
@@ -166,7 +172,7 @@ def get_keypoints(frame, bw_target, roi):
 
     if len(matches) > 0:
         img3 = cv2.drawMatches(bw_target, kp_target, frame, kp_orig, matches, None, flags=2)
-        #1plt.imshow(img3), plt.show()
+        plt.imshow(img3), plt.show()
 
     if len(matches) > 0:
         print("last match distance", matches[-1].distance)
@@ -236,18 +242,18 @@ def get_orientation(bfr, orig_pts, target_pts, bw_target):
     # M = find_homography(np.array(img_points),np.array(obj_points))
     # H = HomographyandPose.find_homography(np.array(target_pts), np.array(orig_pts))
 
-    start = time.time()
+    # start = time.time()
     M = HomographyandPose.RANSAC(target_pts, orig_pts)
-    end = time.time()
+    # end = time.time()
     print("My H: ", M)
-    print("my ransac elapsed time: ", end - start)
+    # print("my ransac elapsed time: ", end - start)
 
     start = time.time()
     H, mask = cv2.findHomography(target_pts, orig_pts, cv2.RANSAC, 5)
     end = time.time()
     # H , mask = cv2.findHomography(np.array(obj_points), np.array(img_points), 0, 5)
     print("CV2 H:", H)
-    print("opencv elapsed time: ", end - start)
+    # print("opencv elapsed time: ", end - start)
     # matchesMask = mask.ravel().tolist()
 
     if len(M) == 0:
@@ -261,10 +267,12 @@ def get_orientation(bfr, orig_pts, target_pts, bw_target):
     # pts = np.float32([[41, 49], [40, 398], [322, 395], [322, 50]]).reshape(-1,1, 2)
     print("pts: ", pts)
     # dst = HomographyandPose.perspective_transform(H, pts)
-    dst = cv2.perspectiveTransform(pts, H)
+    dst = cv2.perspectiveTransform(pts, M)
     box = np.reshape(dst,(4,2))
     box = np.int0(box)
 
+    angle = 0
+    """
     b = M[0][1];
     a = M[0][0];
     # angle to get from box in frame to 0 degrees
@@ -272,10 +280,11 @@ def get_orientation(bfr, orig_pts, target_pts, bw_target):
     # multiply by -1 to get from 0 degrees to frame (the box in the frame's angle of rotation)
     angle = -1 * round(angle, 0)
 
+    
     if angle < 0:
         angle += 360
 
-    """
+    
     draw_params = dict(matchColor=(0, 255, 0),  # draw matches in green color
                        singlePointColor=None,
                        matchesMask=matchesMask,  # draw only inliers
@@ -283,7 +292,7 @@ def get_orientation(bfr, orig_pts, target_pts, bw_target):
     img3 = cv2.drawMatches(bw_target, orig_pts, frame, kp_orig, matches, None, **draw_params)
     plt.imshow(img3, 'gray'), plt.show()
     """
-    return angle, box, H
+    return angle, box, M
 
 """Inputs: points - an array of 4 points.
 Output: Boolean value - true if it's collinear
@@ -452,6 +461,7 @@ def get_contours(frame):
 
     kernel = np.ones((5, 5), np.uint8)
 
+    #"""
     # top right orange corner of box with webcam settings
     lower_orange = np.array([2, 74, 30])
     upper_orange = np.array([15, 190, 123])
@@ -461,16 +471,18 @@ def get_contours(frame):
     lower_red = np.array([0, 126, 45])
     upper_red = np.array([180, 213, 193])
     mask1 = cv2.inRange(hsv, lower_red, upper_red)
+    #"""
+
 
     """
-        # top right orange corner of box with phone settings
-        lower_orange = np.array([21, 67, 149])
-        upper_orange = np.array([95, 255, 255])
-        mask0 = cv2.inRange(hsv, lower_orange, upper_orange)
-        # main red color of box with phone settings
-        lower_red = np.array([166, 77, 58])
-        upper_red = np.array([188, 216, 235])
-        mask1 = cv2.inRange(hsv, lower_red, upper_red)
+    # top right orange corner of box with phone settings
+    lower_orange = np.array([21, 67, 149])
+    upper_orange = np.array([95, 255, 255])
+    mask0 = cv2.inRange(hsv, lower_orange, upper_orange)
+    # main red color of box with phone settings
+    lower_red = np.array([166, 77, 58])
+    upper_red = np.array([188, 216, 235])
+    mask1 = cv2.inRange(hsv, lower_red, upper_red)
     """
 
 
@@ -485,8 +497,8 @@ def get_contours(frame):
 
 
     ret, thresh = cv2.threshold(closing, 127, 255, cv2.THRESH_BINARY)
-    image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    # contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    # image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     contours = sorted(contours, key=lambda contour:cv2.contourArea(contour), reverse=True)
 
@@ -495,7 +507,7 @@ def get_contours(frame):
     roi = cv2.boxPoints(rect)
     roi = np.int0(roi)
 
-    
+    """
     cv2.imshow('orange', mask0)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
@@ -526,14 +538,16 @@ def get_contours(frame):
     cv2.imshow('BFR', frame)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+    """
+
     
     return contours, roi
 
 def get_desired_cnt(img):
     img_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     _, thresh = cv2.threshold(img_grey, 127, 255, 0)
-    image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    # contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    # image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     return contours[0]
 
 def main():
@@ -548,8 +562,8 @@ def main():
 
     # test image
     global img
-    img = cv2.imread("../../images/tracking2/3.jpeg")
-    #img = cv2.imread("../../images/test/45.jpg")
+    img = cv2.imread("../../images/tracking2/15.jpeg")
+    # img = cv2.imread("../../images/test/180.jpg")
     height = 450
     h, w = img.shape[:2]
     r = height / float(h)
