@@ -189,6 +189,7 @@ class HomographyandPose:
         # counter
         i = 0
         while i < N:
+            print("i",  i)
             # draw a sample of p points from the data
             indices = np.random.randint(0, n-1, size=p)
             obj_subset = obj_pts[indices]
