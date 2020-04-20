@@ -548,8 +548,8 @@ def main():
 
     # test image
     global img
-    #img = cv2.imread("../../images/tracking2/0.jpeg")
-    img = cv2.imread("../../images/test/45.jpg")
+    img = cv2.imread("../../images/tracking2/3.jpeg")
+    #img = cv2.imread("../../images/test/45.jpg")
     height = 450
     h, w = img.shape[:2]
     r = height / float(h)

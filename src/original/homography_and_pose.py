@@ -187,9 +187,9 @@ class HomographyandPose:
         # number of nearby points required to assert a model fits well
         T = 15 - p
         # counter
-        i = 0
-        while i < N:
-            print("i",  i)
+        #i = 0
+        # while i < N:
+        for i in range(N):
             # draw a sample of p points from the data
             indices = np.random.randint(0, n-1, size=p)
             obj_subset = obj_pts[indices]
@@ -197,6 +197,7 @@ class HomographyandPose:
 
             # go to next iteration if points are collinear
             if not HomographyandPose.check_Collinear(obj_subset):
+                print("points are collinear")
                 continue
 
             # fit points
@@ -209,12 +210,11 @@ class HomographyandPose:
 
             # calculate number of inliers and the inliers
             num_inliers, obj_inliers, img_inliers = HomographyandPose.compute_inliers(Hk, obj_pts_outside, img_pts_outside, d)
-
             if num_inliers > num_inliers_best:
                 num_inliers_best = num_inliers
                 best_obj_inliers = np.vstack((obj_subset, obj_inliers))
                 best_img_inliers = np.vstack((img_subset, img_inliers))
-            i += 1
+            #i += 1
         print("inliers found: ", num_inliers_best)
         print("best_img_inliers shape: ", best_img_inliers.shape)
         print("best_obj_inliers shape", best_obj_inliers.shape)
