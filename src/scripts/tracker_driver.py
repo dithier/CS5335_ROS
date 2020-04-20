@@ -15,7 +15,7 @@ def main():
     cameramtx = np.array(cameramtx).reshape((3,3))
 
     # load image in question
-    img = cv2.imread("../../images/tracking2/2.jpeg")
+    img = cv2.imread("../../images/tracking2/10.jpeg")
     height = 450
     h, w = img.shape[:2]
     r = height / float(h)

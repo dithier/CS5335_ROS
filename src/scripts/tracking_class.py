@@ -70,7 +70,8 @@ class Tracking:
             if box is not None:
                 T, R, t = HomographyandPose.get_rotation_matrix(H, self.cameramtx)
 
-                r = Rotation.from_matrix(R)
+                # r = Rotation.from_matrix(R)
+                r = Rotation.from_dcm(R)
                 quaternion = r.as_quat()
                 position = self.find_position()
 
