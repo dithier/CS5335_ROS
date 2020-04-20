@@ -54,6 +54,9 @@ class Tracking:
     """
 
     def process_frame(self, frame):
+        quaternion = []
+        position = []
+
         # get contours
         contours, roi = self.get_contours(frame)
         # get rotation angle of target
