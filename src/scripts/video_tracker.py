@@ -28,7 +28,8 @@ class Video_Pose_Publisher:
         # ar tag publisher
         self.ar_pose_publisher = rospy.Publisher('/Ar_Pose', Pose, queue_size = 1)
         # our pose publisher
-        self.our_pose_publisher = rospy.Publisher('/Our_Pose', Pose, queue_size = 1)
+        # self.our_pose_publisher = rospy.Publisher('/Our_Pose', Pose, queue_size = 1)
+        self.images = []
 
     # callback for the pose received from the ar tag
     def ar_tag_callback(self, msg):
@@ -56,6 +57,7 @@ class Video_Pose_Publisher:
 
     # callback for the pose received from the object tracker 
     def tracking_callback(self, msg):
+        """
         print("our tracking: ", self.our_count)
         if self.our_count < self.num_messages:
             self.our_count = self.our_count + 1
@@ -89,6 +91,17 @@ class Video_Pose_Publisher:
                 self.our_pose_publisher.publish(image_pose)
         else:
             print("Our pose all processed")
+
+        """
+        try:
+            cv_img = bridge.imgmsg_to_cv2(msg, desired_encoding="passthrough")
+            self.images.append(cv_img)
+
+            if len(self.images) == self.num_messages:
+                pass
+        except CvBridgeError, e:
+            print(e)
+
 
 def main():
     # get camera matrix from calibration file
