@@ -32,6 +32,18 @@ RADIUS = 50
 # size for one unit of the axis in the reference frame of 1.jpg
 AXIS_SIZE = 100
 
+#width of the original image from the webcam before resizing
+original_image_w = 1726
+
+#height of the original image from the webcam before resizing
+original_image_h = 2120
+
+# x position of the center of the tag
+ar_tag_w = 936 #center of ar tag on image 2.jpg
+
+# y position of the center of the tag
+ar_tag_h = 647 #center of ar tag on image 2.jpg
+
 class Tracking:
     def __init__(self, bw_target, desired_cnt, cameramtx):
         self.bw_target = bw_target
@@ -76,7 +88,7 @@ class Tracking:
                 # r = Rotation.from_matrix(R)
                 r = Rotation.from_dcm(R)
                 quaternion = r.as_quat()
-                position = self.find_position()
+                position = self.find_position(self.bw_target,frame,H,box)
 
                 axis = np.float32([[AXIS_SIZE, 0, 0], [0, AXIS_SIZE, 0], [0, 0, -AXIS_SIZE]]).flatten().reshape((3, 3))
                 projected_pts = HomographyandPose.project_pts(T, self.cameramtx, axis)
@@ -88,8 +100,65 @@ class Tracking:
             print("no valid contours")
         return frame, quaternion, position
 
-    def find_position(self):
-        return [0, 0, 0]
+    ## Function to find the position of the object in meters w.r.t. the camera
+    """
+    find_position
+    Inputs: bw_target - the frame to get contours from
+            frame - the frame to get the position of the rice box
+            H - the homography matrix 
+            bfr - the coordinates of the best fit rectangle (bounding box) for the target
+    Outputs: position - a array containing the x, y and z position of the object w.r.t. to the tracker
+    Description: This function find the position of the ar tag w.r.t. to the webcam. The center of the
+                 image is taken is (0,0). The positive x-axis is towards the right and the positive 
+                 y-axis is upwards.
+    """
+    def find_position(self,bw_target,frame,H,bfr):
+        height, width = frame.shape[:2]
+        # width of the frame
+        w1 = math.fabs(bfr[3][0] - bfr[0][0])
+        w2 = math.fabs(bfr[2][0] - bfr[1][0])
+        width_img = (w1 + w2) / 2.0  # avg the widths of the two sides of the image
+        width_of_frame=TARGET_WIDTH*width/width_img
+
+        # height of the frame
+        h1 = math.fabs(bfr[1][1] - bfr[0][1])
+        h2 = math.fabs(bfr[2][1] - bfr[3][1])
+        height_img = (h1 + h2) / 2.0  # avg the height of the two sides of the image
+        height_of_frame=TARGET_HEIGHT*height/height_img
+        
+        target_h,target_w = bw_target.shape[:2]
+        frame_h,frame_w = frame.shape[:2]
+        #height and width of the tag w.r.t. to the resized image
+        h = ar_tag_h*target_h/original_image_h
+        w = ar_tag_w*target_w/original_image_w
+        # finding the center of the ar tag  
+        pts = np.float32([[h-1, w-1], [h-1, w + 1], [h + 1, w + 1],[h + 1, w-1]]).reshape(-1,1, 2)
+        dst = cv2.perspectiveTransform(pts, H)
+        box = np.reshape(dst,(4,2))
+        box = np.int0(box)
+        x,y = find_center(box)
+        # x,y displacements of ricebox in meters from the webcam
+        y = -1*(y-frame_h/2) *height_of_frame*0.0254/frame_h  
+        x = (x-frame_w/2) *width_of_frame*0.0254/frame_w    #in meters
+        # distance of the ricebox from the webcam in meters
+        z = calculate_distance(frame,bfr)/3.208 #in meters
+        return [x, y, z]
+
+    """
+    calculate_distance
+    Inputs: frame - the frame to be analyzed
+            bfr - the coordinates of the best fit rectangle (bounding box) for the target
+    Outputs: the distance from the target to the camera
+    Description: This function calculates the distance from the target to the camera
+    """
+    def calculate_distance(frame, bfr):
+        height, width, channels = frame.shape
+        w1 = math.fabs(bfr[3][0] - bfr[0][0])
+        w2 = math.fabs(bfr[2][0] - bfr[1][0])
+        width_img = (w1 + w2) / 2.0  # avg the widths of the two sides of the image
+        w=TARGET_WIDTH*width/width_img
+        distance = ((w/2)/math.tan(CAMERA_FOV*math.pi/360.0))/12.0 #in feet
+        return distance
 
     """
     get_contours

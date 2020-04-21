@@ -18,7 +18,11 @@ class Video_Pose_Publisher:
         # whether or not the bag file has start playing
         self.start = False
         # number of messages in ros bag
+<<<<<<< HEAD
+        self.num_messages = 500
+=======
         self.num_messages = 1213
+>>>>>>> b7909085ea15f5793a18746b10dc3cd5b6892427
         # object that does our pose estimation
         self.tracking_obj = tracking_obj
         # number of messages published for ar pose
@@ -35,6 +39,10 @@ class Video_Pose_Publisher:
 
     # callback for the pose received from the ar tag
     def ar_tag_callback(self, msg):
+<<<<<<< HEAD
+        """
+=======
+>>>>>>> b7909085ea15f5793a18746b10dc3cd5b6892427
         print("ar:", self.ar_count)
         if self.start:
             if self.ar_count < self.num_messages:
@@ -56,6 +64,19 @@ class Video_Pose_Publisher:
                 self.ar_pose_publisher.publish(ar_pose)
                 self.ar_count += 1
                 self.start = True
+<<<<<<< HEAD
+        """
+        print("ar:", self.ar_count)
+        self.ar_count += 1
+        markers = msg.markers
+        if len(markers) > 0:
+            msg = markers[0]
+            ar_pose = msg.pose.pose
+        else:
+            ar_pose = Pose()
+        self.ar_pose_publisher.publish(ar_pose)
+=======
+>>>>>>> b7909085ea15f5793a18746b10dc3cd5b6892427
 
     # callback for the pose received from the object tracker 
     def tracking_callback(self, msg):
@@ -98,14 +119,25 @@ class Video_Pose_Publisher:
         try:
             cv_img = bridge.imgmsg_to_cv2(msg, desired_encoding="passthrough")
             self.images.append(cv_img)
+<<<<<<< HEAD
+            print("images recorded: ", len(self.images))
+            if len(self.images) == self.num_messages:
+                print("inside if")
+=======
 
             if len(self.images) == self.num_messages:
+>>>>>>> b7909085ea15f5793a18746b10dc3cd5b6892427
                 path = "/home/ithier/catkin_ws/src/CS5335_ROS/src/scripts/"
                 filename = path + "all_images"
                 np.savez(filename, images=self.images)
                 print("saved images")
+<<<<<<< HEAD
+        except:
+            print("error")
+=======
         except CvBridgeError, e:
             print(e)
+>>>>>>> b7909085ea15f5793a18746b10dc3cd5b6892427
 
 
 def main():
@@ -142,8 +174,8 @@ def main():
     video_Pose_Publisher = Video_Pose_Publisher(tracking_obj)
 
     # the subscribers
-    rospy.Subscriber('/ar_pose_marker', AlvarMarkers, video_Pose_Publisher.ar_tag_callback)
-    rospy.Subscriber('/webcam/image_raw', Image, video_Pose_Publisher.tracking_callback)
+    rospy.Subscriber('/ar_pose_marker', AlvarMarkers, video_Pose_Publisher.ar_tag_callback, queue_size=5)
+    # rospy.Subscriber('/webcam/image_raw', Image, video_Pose_Publisher.tracking_callback)
 
     rospy.spin()
         

@@ -43,6 +43,7 @@ def yaml_to_CameraInfo(yaml_fname):
     camera_info_msg.R = calib_data["rectification_matrix"]["data"]
     camera_info_msg.P = calib_data["projection_matrix"]["data"]
     camera_info_msg.distortion_model = calib_data["distortion_model"]
+    camera_info_msg.header.frame_id = "webcam"
     return camera_info_msg
 
 if __name__ == "__main__":
