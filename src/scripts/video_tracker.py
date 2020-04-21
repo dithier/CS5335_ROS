@@ -18,7 +18,7 @@ class Video_Pose_Publisher:
         # whether or not the bag file has start playing
         self.start = False
         # number of messages in ros bag
-        self.num_messages = 1213
+        self.num_messages = 500
         # object that does our pose estimation
         self.tracking_obj = tracking_obj
         # number of messages published for ar pose
@@ -35,6 +35,7 @@ class Video_Pose_Publisher:
 
     # callback for the pose received from the ar tag
     def ar_tag_callback(self, msg):
+        """
         print("ar:", self.ar_count)
         if self.start:
             if self.ar_count < self.num_messages:
@@ -56,6 +57,16 @@ class Video_Pose_Publisher:
                 self.ar_pose_publisher.publish(ar_pose)
                 self.ar_count += 1
                 self.start = True
+        """
+        print("ar:", self.ar_count)
+        self.ar_count += 1
+        markers = msg.markers
+        if len(markers) > 0:
+            msg = markers[0]
+            ar_pose = msg.pose.pose
+        else:
+            ar_pose = Pose()
+        self.ar_pose_publisher.publish(ar_pose)
 
     # callback for the pose received from the object tracker 
     def tracking_callback(self, msg):
@@ -98,14 +109,15 @@ class Video_Pose_Publisher:
         try:
             cv_img = bridge.imgmsg_to_cv2(msg, desired_encoding="passthrough")
             self.images.append(cv_img)
-
+            print("images recorded: ", len(self.images))
             if len(self.images) == self.num_messages:
+                print("inside if")
                 path = "/home/ithier/catkin_ws/src/CS5335_ROS/src/scripts/"
                 filename = path + "all_images"
                 np.savez(filename, images=self.images)
                 print("saved images")
-        except CvBridgeError, e:
-            print(e)
+        except:
+            print("error")
 
 
 def main():
@@ -142,8 +154,8 @@ def main():
     video_Pose_Publisher = Video_Pose_Publisher(tracking_obj)
 
     # the subscribers
-    rospy.Subscriber('/ar_pose_marker', AlvarMarkers, video_Pose_Publisher.ar_tag_callback)
-    rospy.Subscriber('/webcam/image_raw', Image, video_Pose_Publisher.tracking_callback)
+    rospy.Subscriber('/ar_pose_marker', AlvarMarkers, video_Pose_Publisher.ar_tag_callback, queue_size=5)
+    # rospy.Subscriber('/webcam/image_raw', Image, video_Pose_Publisher.tracking_callback)
 
     rospy.spin()
         
