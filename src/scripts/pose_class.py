@@ -68,9 +68,9 @@ class HomographyandPose:
         temp = tuple(pts[0, 0:2])
         print("corner", corner)
         print("pt", temp)
-        img = cv.line(img, corner, tuple(pts[0, 0:2]), (255, 0, 0), 4)
+        img = cv.line(img, corner, tuple(pts[0, 0:2]), (0, 0, 255), 4)
         img = cv.line(img, corner, tuple(pts[1, 0:2]), (0, 255, 0), 4)
-        img = cv.line(img, corner, tuple(pts[2, 0:2]), (0, 0, 255), 4)
+        img = cv.line(img, corner, tuple(pts[2, 0:2]), (255, 0, 0), 4)
         return img
 
     @staticmethod
