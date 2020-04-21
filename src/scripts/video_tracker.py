@@ -1,3 +1,5 @@
+#! /usr/bin/python
+
 import yaml
 import rospy
 import cv2
@@ -92,7 +94,7 @@ class Video_Pose_Publisher:
 
 def main():
     # get camera matrix from calibration file
-    path = "./"
+    path = "/home/ithier/catkin_ws/src/CS5335_ROS/src/scripts/"
     filename = path + "webcam.yaml"
 
     with open(filename, "r") as file_handle:
@@ -102,12 +104,15 @@ def main():
     cameramtx = np.array(cameramtx).reshape((3, 3))
 
     # get desired contour for perfect match
-    desired = cv2.imread("../../images/desired_cnt.png")
+    images_path = "/home/ithier/catkin_ws/src/CS5335_ROS/images/"
+    file = images_path + "desired_cnt.png"
+    desired = cv2.imread(file)
     desired_cnt = Tracking.get_desired_cnt(desired)
 
     # load image that has target in it at 0 degree rotation
     height = 450
-    bw_target = cv2.imread("../../images/2.jpg", 0)
+    file = images_path + "2.jpg"
+    bw_target = cv2.imread(file, 0)
     h, w = bw_target.shape[:2]
     r = height / float(h)
     dim = (int(w * r), height)
