@@ -13,6 +13,8 @@ bridge = CvBridge()
 class Video_Pose_Publisher:
     # Function to initialize
     def __init__(self, tracking_obj):
+        # whether or not the bag file has start playing
+        self.start = False
         # number of messages in ros bag
         self.num_messages = 1213
         # object that does our pose estimation
@@ -31,15 +33,26 @@ class Video_Pose_Publisher:
     # callback for the pose received from the ar tag
     def ar_tag_callback(self, msg):
         print("ar:", self.ar_count)
-        if self.ar_count < self.num_messages:
-            self.ar_count += 1
+        if self.start:
+            if self.ar_count < self.num_messages:
+                self.ar_count += 1
+                markers = msg.markers
+                if len(markers) > 0:
+                    msg = markers[0]
+                    ar_pose = msg.pose.pose
+                else:
+                    ar_pose = Pose()
+                self.ar_pose_publisher.publish(ar_pose)
+            else:
+                print("AR tags all processed")
+        else:
             markers = msg.markers
             if len(markers) > 0:
                 msg = markers[0]
                 ar_pose = msg.pose.pose
-            else:
-                ar_pose = Pose()
-            self.ar_pose_publisher.publish(ar_pose)
+                self.ar_pose_publisher.publish(ar_pose)
+                self.ar_count += 1
+                self.start = True
 
     # callback for the pose received from the object tracker 
     def tracking_callback(self, msg):
@@ -74,6 +87,8 @@ class Video_Pose_Publisher:
                 print(e)
                 image_pose = Pose()
                 self.our_pose_publisher.publish(image_pose)
+        else:
+            print("Our pose all processed")
 
 def main():
     # get camera matrix from calibration file
