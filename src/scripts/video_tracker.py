@@ -100,7 +100,10 @@ class Video_Pose_Publisher:
             self.images.append(cv_img)
 
             if len(self.images) == self.num_messages:
-                pass
+                path = "/home/ithier/catkin_ws/src/CS5335_ROS/src/scripts/"
+                filename = path + "all_images"
+                np.savez(filename, images=self.images)
+                print("saved images")
         except CvBridgeError, e:
             print(e)
 
