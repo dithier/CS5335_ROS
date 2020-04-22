@@ -112,7 +112,7 @@ class Tracking:
                  image is taken is (0,0). The positive x-axis is towards the right and the positive 
                  y-axis is upwards.
     """
-    def find_position(self,bw_target,frame,H,bfr):
+    def find_position(self, bw_target, frame, H, bfr):
         height, width = frame.shape[:2]
         # width of the frame
         w1 = math.fabs(bfr[3][0] - bfr[0][0])
@@ -136,13 +136,33 @@ class Tracking:
         dst = cv2.perspectiveTransform(pts, H)
         box = np.reshape(dst,(4,2))
         box = np.int0(box)
-        x,y = find_center(box)
+        x,y = self.find_center(box)
         # x,y displacements of ricebox in meters from the webcam
         y = -1*(y-frame_h/2) *height_of_frame*0.0254/frame_h  
         x = (x-frame_w/2) *width_of_frame*0.0254/frame_w    #in meters
         # distance of the ricebox from the webcam in meters
-        z = calculate_distance(frame,bfr)/3.208 #in meters
+        z = self.calculate_distance(frame,bfr)/3.208 #in meters
         return [x, y, z]
+
+    """
+    find_center
+    Inputs: cnt- the contour that you want to find the center of
+    Outputs: cx - the x coordinate of the center of the contour
+            cy - the y coordinate of the center of the contour
+    Description: This function finds the x, y coordinates in the frame of the center
+    of the contour passed in
+    """
+
+    def find_center(self, cnt):
+        M = cv2.moments(cnt)
+        denom = M["m00"]
+        if abs(denom) > 0.001:
+            cx = int(M["m10"] / M["m00"])
+            cy = int(M["m01"] / M["m00"])
+        else:
+            cx = 0
+            cy = 0
+        return cx, cy
 
     """
     calculate_distance
@@ -151,7 +171,7 @@ class Tracking:
     Outputs: the distance from the target to the camera
     Description: This function calculates the distance from the target to the camera
     """
-    def calculate_distance(frame, bfr):
+    def calculate_distance(self, frame, bfr):
         height, width, channels = frame.shape
         w1 = math.fabs(bfr[3][0] - bfr[0][0])
         w2 = math.fabs(bfr[2][0] - bfr[1][0])
@@ -191,8 +211,8 @@ class Tracking:
         closing = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
 
         ret, thresh = cv2.threshold(closing, 127, 255, cv2.THRESH_BINARY)
-        image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        # contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        # image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
         contours = sorted(contours, key=lambda contour: cv2.contourArea(contour), reverse=True)
 
@@ -307,7 +327,7 @@ class Tracking:
         # using the transformation matrix to find the 4 edges of the image
         h, w = bw_target.shape
         pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
-        dst = cv2.perspectiveTransform(pts, H)
+        dst = HomographyandPose.perspective_transform(H, pts)
         box = np.reshape(dst, (4, 2))
         box = np.int0(box)
 
@@ -337,6 +357,6 @@ class Tracking:
     def get_desired_cnt(img):
         img_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         _, thresh = cv2.threshold(img_grey, 127, 255, 0)
-        image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        # contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        # image, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         return contours[0]
