@@ -133,7 +133,7 @@ class Tracking:
         w = ar_tag_w*target_w/original_image_w
         # finding the center of the ar tag  
         pts = np.float32([[h-1, w-1], [h-1, w + 1], [h + 1, w + 1],[h + 1, w-1]]).reshape(-1,1, 2)
-        dst = cv2.perspectiveTransform(pts, H)
+        dst = HomographyandPose.perspective_transform(H, pts)
         box = np.reshape(dst,(4,2))
         box = np.int0(box)
         x,y = self.find_center(box)
