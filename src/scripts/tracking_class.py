@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 from scipy.spatial.transform import Rotation
 import math
+from math import cos, sin, pi
 
 # camera field of view
 CAMERA_FOV = 55
@@ -85,12 +86,22 @@ class Tracking:
             if box is not None:
                 T, R, t = HomographyandPose.get_rotation_matrix(H, self.cameramtx)
 
-                # r = Rotation.from_matrix(R)
-                r = Rotation.from_dcm(R)
+                # make axis convention agree with ar track alvar
+                r2 = [[cos(pi), 0, sin(pi)],
+                      [0, 1, 0],
+                      [-sin(pi), 0, cos(pi)]]
+
+                new_r = np.matmul(R, r2)
+                T = np.hstack((new_r, t))
+
+                r = Rotation.from_dcm(new_r)
                 quaternion = r.as_quat()
+
+                # calculate position
                 position = self.find_position(self.bw_target,frame,H,box)
 
-                axis = np.float32([[AXIS_SIZE, 0, 0], [0, AXIS_SIZE, 0], [0, 0, -AXIS_SIZE]]).flatten().reshape((3, 3))
+                axis = np.float32([[AXIS_SIZE, 0, 0], [0, AXIS_SIZE, 0], [0, 0, AXIS_SIZE]]).flatten().reshape((3, 3))
+
                 projected_pts = HomographyandPose.project_pts(T, self.cameramtx, axis)
 
                 frame = self.draw_on_image(frame, box, projected_pts)
